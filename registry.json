@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "plugins": [
+    {
+      "id": "codex-quota-guard",
+      "name": "Codex Quota Guard",
+      "description": "Enables and disables Codex credentials from the 5h window quota Codex reports, instead of inferring credential health from request outcomes.",
+      "author": "yklbigdata",
+      "version": "1.0.0",
+      "repository": "https://github.com/yklbigdata/cliproxy-codex-quota-guard",
+      "homepage": "https://github.com/yklbigdata/cliproxy-codex-quota-guard",
+      "license": "MIT",
+      "tags": [
+        "Quota",
+        "Codex",
+        "Management"
+      ],
+      "install": {
+        "type": "direct",
+        "artifacts": [
+          {
+            "goos": "linux",
+            "goarch": "amd64",
+            "url": "https://github.com/yklbigdata/cliproxy-codex-quota-guard/releases/download/v1.0.0/codex-quota-guard_1.0.0_linux_amd64.zip",
+            "sha256": "c95aaa58d3e8030aaf93b97da017b56effeaa8bd13cf4931513a900a0dcbc72b",
+            "size": 3751896
+          }
+        ]
+      }
+    }
+  ]
+}

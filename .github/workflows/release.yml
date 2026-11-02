@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish release assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Resolve version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - run: go mod download
+      - name: Build plugin
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-shared -trimpath \
+            -o dist/codex-quota-guard.so .
+      - name: Package assets
+        run: |
+          cd dist
+          zip -X "codex-quota-guard_${{ steps.version.outputs.value }}_linux_amd64.zip" codex-quota-guard.so
+          sha256sum "codex-quota-guard_${{ steps.version.outputs.value }}_linux_amd64.zip" > checksums.txt
+          cat checksums.txt
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/codex-quota-guard_${{ steps.version.outputs.value }}_linux_amd64.zip
+            dist/checksums.txt
+          generate_release_notes: true
