@@ -22,8 +22,8 @@
             "goos": "linux",
             "goarch": "amd64",
             "url": "https://github.com/yklbigdata/cliproxy-codex-quota-guard/releases/download/v2.1.0/codex-quota-guard_2.1.0_linux_amd64.zip",
-            "sha256": "51eaeb7cdd536ecc3623de9b03b52c04aeb7438023bd4f78adbac52a7092ff77",
-            "size": 3896663
+            "sha256": "c256a055eaafe36f14c2e99242e33a1988420af9127a076bf643ae366fb6d6b5",
+            "size": 3856048
           }
         ]
       }
