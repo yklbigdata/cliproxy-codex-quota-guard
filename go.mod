@@ -1,8 +1,8 @@
 module github.com/yklbigdata/cliproxy-codex-quota-guard
 
-go 1.26.0
+go 1.26.10
 
 require (
-	github.com/router-for-me/CLIProxyAPI/v7 v7.3.12
+	github.com/router-for-me/CLIProxyAPI/v8 v8.0.51
 	gopkg.in/yaml.v3 v3.0.1
 )

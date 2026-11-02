@@ -1,46 +1,78 @@
 # Codex Quota Guard
 
-`codex-quota-guard` is a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) native plugin that enables and disables Codex credentials from the quota Codex itself reports, instead of inferring health from request outcomes.
+`codex-quota-guard` is a native [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 plugin that keeps exhausted Codex credentials out of the routing pool and restores them after quota recovery.
 
-When the 5h window of a Codex credential is nearly spent, the guard disables that credential so no further traffic is routed to it. Once the window rolls over and the credential has quota again, the guard re-enables it. No 429, retry counter, or error-rate heuristic is involved.
+Version 2 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, and durable state in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
 
-## How it decides
+## Features
 
-Every sweep the plugin:
+- Disable a Codex credential when the 5-hour window has **1% or less remaining**.
+- Re-enable it after the same window recovers to **5% or more**.
+- Optionally apply the same policy to the 7-day window.
+- Honour Codex 429 responses and their `x-codex-*` reset headers.
+- Filter blocked credentials in the scheduler path, before a request is sent.
+- Run optional daily warm-up requests for each eligible credential.
+- Preserve block state, 429 state, ownership markers, and warm-up deduplication across restarts.
+- Never re-enable a credential that a person disabled outside the plugin.
 
-1. lists credentials through `host.auth.list` and keeps the ones whose provider is listed in `providers` (default `codex`);
-2. reads each credential JSON through `host.auth.get` to obtain its access token and account id;
-3. asks the same endpoint the Codex client and the management UI use, `https://chatgpt.com/backend-api/wham/usage`, through `host.http.do`;
-4. reads `rate_limit.primary_window.used_percent` (the 5h window) and `rate_limit.secondary_window.used_percent` (the 7d window);
-5. disables or re-enables the credential by rewriting its credential JSON, then polls `host.auth.get_runtime` until the runtime record matches the new state.
+## Requirements
 
-Defaults: disable at **1% remaining** on the 5h window, re-enable once the 5h window is back to **5% remaining** or more.
+- CLIProxyAPI v8 with native plugin, usage, scheduler, and management APIs.
+- Linux `amd64` for the published shared object.
+- Write access to the configured persistent state path.
 
-## Why the guard writes the credential file itself
+The current release is built and tested against CLIProxyAPI `v8.0.51`.
 
-`host.auth.save` is the documented way for a plugin to persist credential JSON, and this plugin used it first. It does not work for this purpose on CLIProxyAPI v7.2.156 through v7.3.12: the host rebuilds the runtime record from the payload without applying `disabled`, and then persists that record back to disk, so the credential is enabled again immediately and the `disabled` flag never survives.
+## Policy flow
 
-The guard therefore replaces the credential file atomically (temporary file plus rename, preserving the original mode) and lets the host's own auth directory watcher synthesize the record, which does honour `disabled`. Every write is confirmed by reading `host.auth.get_runtime`; if the runtime does not reflect the change within five seconds, the sweep reports an error instead of claiming success.
+On each sweep the plugin:
 
-## Ownership
+1. lists credentials with `host.auth.list` and selects the configured providers;
+2. reads each selected credential with `host.auth.get`;
+3. reads Codex usage from the configured `usage_url`;
+4. applies the 5-hour and optional 7-day hysteresis policy;
+5. additionally considers 429 blocks recorded by the usage hook;
+6. persists the decision state;
+7. updates the credential only when its runtime state must change.
 
-The guard only re-enables credentials it disabled itself. Every disable writes a marker next to the credential:
+The scheduler plugin also applies persisted quota, 429, and manual-disable blocks. If every candidate is blocked, it rejects the pick instead of falling back to a blocked credential.
 
-```json
-{
-  "disabled": true,
-  "codex_quota_guard": {
-    "managed": true,
-    "disabled_at": "2026-09-22T15:04:05Z",
-    "reason": "5h window remaining 0.4% <= 1% (plan plus)",
-    "remaining_percent": 0.4,
-    "window_reset_at": "2026-09-22T19:00:00Z",
-    "plugin_version": "1.0.0"
-  }
-}
+## Ownership and manual disables
+
+A credential disabled by this plugin contains a managed `codex_quota_guard` marker. The plugin only automatically enables a credential when that marker proves ownership.
+
+A credential with `disabled: true` and no managed marker has priority and is treated as manually disabled. The plugin does not probe its quota or enable it.
+
+## 429 handling
+
+The usage hook reads the Codex response headers:
+
+- `x-codex-primary-used-percent`
+- `x-codex-primary-reset-at`
+- `x-codex-primary-window-minutes`
+- `x-codex-secondary-used-percent`
+- `x-codex-secondary-reset-at`
+- `x-codex-secondary-window-minutes`
+
+The active window is selected from the reported usage and reset time. If no usable reset header exists, the configured `rate_limit_fallback` is used.
+
+## Persistent state
+
+The default container path is:
+
+```text
+/CLIProxyAPI/plugins/state/codex-quota-guard/state.json
 ```
 
-A credential that a person disabled by hand is skipped: the guard does not read its quota, does not touch it, and does not re-enable it. Re-enabling removes the marker and clears `disabled`.
+With the usual CLIProxyAPI bind mount, the host path is:
+
+```text
+/opt/cliproxyapi/plugins/state/codex-quota-guard/state.json
+```
+
+State is written atomically with a temporary file, file sync, rename, and directory sync. Linux builds use an exclusive file lock. The directory is created with mode `0700` and the state file with mode `0600`.
+
+The state contains non-secret scheduling metadata: credential identifiers, observed quota percentages, reset times, block reasons, and warm-up status. It does not contain access tokens, refresh tokens, ID tokens, API keys, Management Keys, or request bodies.
 
 ## Configuration
 
@@ -51,78 +83,110 @@ plugins:
   configs:
     codex-quota-guard:
       enabled: true
-      priority: 100
 
-      # Providers handled by this plugin.
       providers: ["codex"]
 
-      # Disable when the 5h window remaining quota reaches this percentage.
       disable_below_remaining_percent: 1
-      # Re-enable when the 5h window remaining quota is back to this percentage.
       resume_above_remaining_percent: 5
 
-      # Optional 7d window policy. Off by default.
       enforce_weekly_window: false
       weekly_disable_below_remaining_percent: 1
       weekly_resume_above_remaining_percent: 5
 
-      # Sweep cadence. The interval floor is 15s.
       poll_interval: 60s
       initial_delay: 15s
       http_timeout: 25s
-
-      # Never disable every credential of one provider; the one with the most
-      # remaining quota stays enabled.
       keep_at_least_one: true
-
-      # Report decisions without writing credential state.
       dry_run: false
 
       max_credentials: 50
       usage_url: "https://chatgpt.com/backend-api/wham/usage"
       user_agent: "codex-cli/0.154.0"
+
+      state_file: /CLIProxyAPI/plugins/state/codex-quota-guard/state.json
+      rate_limit_fallback: 5h
+
+      warmup_enabled: true
+      warmup_model: gpt-6-luna
+      warmup_prompt: "Reply with exactly: quota window activated"
+      warmup_timezone: Asia/Singapore
+      warmup_schedules:
+        - id: daily
+          at: "09:00"
+          enabled: false
 ```
 
-`resume_above_remaining_percent` must be greater than `disable_below_remaining_percent`; the reverse would make the credential flap on every sweep.
+`resume_above_remaining_percent` must be greater than `disable_below_remaining_percent`. The same hysteresis rule applies to the 7-day policy.
 
-## Install
+`keep_at_least_one` protects the quota policy only. It does not override a 429 block or a manual disable.
 
-Build the shared library for the platform that runs CLIProxyAPI:
+An empty `warmup_schedules` list disables scheduled runs while leaving the warm-up subsystem enabled. Each credential runs at most once for the same schedule and local calendar date, including after a restart.
+
+## Build
 
 ```bash
-make build           # -> dist/codex-quota-guard.so (linux/amd64)
+make test
+make vet
+make build
 ```
 
-Then place it where the host discovers plugins and add the configuration block:
+Build output:
+
+```text
+dist/codex-quota-guard.so
+```
+
+## Install manually
 
 ```bash
-install -m 0644 dist/codex-quota-guard.so /opt/cliproxyapi/plugins/linux/amd64/codex-quota-guard.so
+install -d -m 0700 /opt/cliproxyapi/plugins/state/codex-quota-guard
+install -m 0644 dist/codex-quota-guard.so \
+  /opt/cliproxyapi/plugins/linux/amd64/codex-quota-guard.so
 ```
 
-The plugin id comes from the file name, so the file must be `codex-quota-guard.so` and the configuration key must be `codex-quota-guard`. Restart CLIProxyAPI, or install through the plugin store, so the host loads the new library.
+Add the configuration block, then restart CLIProxyAPI once.
+
+The plugin ID comes from the shared-object filename. Keep the filename and configuration key exactly `codex-quota-guard`.
+
+## Install from a plugin store
+
+This repository publishes a CPA-compatible `registry.json`. Add its raw URL to `plugins.store-sources`:
+
+```yaml
+plugins:
+  store-sources:
+    - "https://raw.githubusercontent.com/yklbigdata/cliproxy-codex-quota-guard/main/registry.json"
+```
+
+Then install or update `codex-quota-guard` from the management UI.
 
 ## Verify
 
-The plugin registers one management resource page:
+Open:
 
-```
+```text
 http://127.0.0.1:8317/v0/resource/plugins/codex-quota-guard/status
 ```
 
-It shows the sweep counters, the active policy, and one row per credential with the 5h/7d usage, the runtime disabled flag, the guard ownership flag, and the last decision. The same state reaches the host log:
+The page shows the active policy, state path, save status, warm-up status, and one row per credential.
 
+Check persistence without exposing credentials:
+
+```bash
+sudo stat -c '%a %U:%G %s %n' \
+  /opt/cliproxyapi/plugins/state/codex-quota-guard/state.json
+sudo jq 'del(.credentials[].email)' \
+  /opt/cliproxyapi/plugins/state/codex-quota-guard/state.json
 ```
-codex-quota-guard: credential disabled   credential=codex-...json reason="5h window remaining 0.4% <= 1%"
-codex-quota-guard: credential re-enabled credential=codex-...json reason="5h window recovered to 12% remaining"
-```
 
-To exercise the guard without waiting for a real quota exhaustion, raise `disable_below_remaining_percent` above the current usage of one credential, restart, and confirm the credential flips to disabled. Lower it back and the next sweep re-enables it.
+Restart CLIProxyAPI and confirm that the status page restores the same block and warm-up state.
 
-## Limits
+## Boundaries
 
-- The plugin trusts the Codex usage endpoint. If that call fails, the credential keeps its current state; the guard never re-enables on a failed read.
-- Disabling is a hard filter: an exhausted credential leaves the routing pool entirely instead of cooling down and retrying.
-- Tokens are never logged. The guard writes only the credential JSON it read, with the fields it owns replaced.
+- The plugin trusts the Codex usage endpoint. A failed usage read preserves existing blocks and does not trigger an enable.
+- The plugin cannot enable a credential disabled manually.
+- This is a native shared library and runs with the same privileges as CLIProxyAPI.
+- Rotate credentials if you suspect a credential file has been exposed outside the host.
 
 ## License
 

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 const (
 	pluginID      = "codex-quota-guard"
 	pluginName    = "Codex Quota Guard"
-	pluginVersion = "1.0.0"
+	pluginVersion = "2.0.0"
 	pluginAuthor  = "yklbigdata"
 	repositoryURL = "https://github.com/yklbigdata/cliproxy-codex-quota-guard"
 
@@ -23,11 +24,15 @@ const (
 	primaryWindowSeconds = int64(18000)
 	weeklyWindowSeconds  = int64(604800)
 
-	defaultPollInterval = 60 * time.Second
-	defaultInitialDelay = 15 * time.Second
-	defaultHTTPTimeout  = 25 * time.Second
-	minPollInterval     = 15 * time.Second
-	maxCredentials      = 500
+	defaultPollInterval      = 60 * time.Second
+	defaultInitialDelay      = 15 * time.Second
+	defaultHTTPTimeout       = 25 * time.Second
+	defaultRateLimitFallback = 5 * time.Hour
+	minPollInterval          = 15 * time.Second
+	maxCredentials           = 500
+	defaultWarmupModel       = "gpt-6-luna"
+	defaultWarmupPrompt      = "Reply with exactly: quota window activated"
+	defaultWarmupTimezone    = "Asia/Singapore"
 )
 
 // duration parses YAML durations such as "60s" as well as bare seconds.
@@ -81,15 +86,34 @@ type pluginConfig struct {
 	KeepAtLeastOne *bool `yaml:"keep_at_least_one"`
 	DryRun         *bool `yaml:"dry_run"`
 
-	MaxCredentials int    `yaml:"max_credentials"`
-	UsageURL       string `yaml:"usage_url"`
-	UserAgent      string `yaml:"user_agent"`
+	MaxCredentials    int      `yaml:"max_credentials"`
+	UsageURL          string   `yaml:"usage_url"`
+	UserAgent         string   `yaml:"user_agent"`
+	StateFile         string   `yaml:"state_file"`
+	RateLimitFallback duration `yaml:"rate_limit_fallback"`
+
+	WarmupEnabled   *bool            `yaml:"warmup_enabled"`
+	WarmupModel     string           `yaml:"warmup_model"`
+	WarmupPrompt    string           `yaml:"warmup_prompt"`
+	WarmupTimezone  string           `yaml:"warmup_timezone"`
+	WarmupSchedules []warmupSchedule `yaml:"warmup_schedules"`
+}
+
+type warmupSchedule struct {
+	ID      string `yaml:"id" json:"id"`
+	At      string `yaml:"at" json:"at"`
+	Enabled *bool  `yaml:"enabled" json:"enabled,omitempty"`
+}
+
+func (s warmupSchedule) enabled() bool {
+	return s.Enabled == nil || *s.Enabled
 }
 
 func defaultConfig() pluginConfig {
 	keepOne := true
 	dryRun := false
 	weekly := false
+	warmupEnabled := true
 	return pluginConfig{
 		Providers:                    []string{"codex"},
 		DisableBelowRemainingPercent: 1,
@@ -105,6 +129,12 @@ func defaultConfig() pluginConfig {
 		MaxCredentials:               50,
 		UsageURL:                     defaultUsageURL,
 		UserAgent:                    defaultUserAgent,
+		StateFile:                    defaultPersistentStateFile(),
+		RateLimitFallback:            duration{value: defaultRateLimitFallback},
+		WarmupEnabled:                &warmupEnabled,
+		WarmupModel:                  defaultWarmupModel,
+		WarmupPrompt:                 defaultWarmupPrompt,
+		WarmupTimezone:               defaultWarmupTimezone,
 	}
 }
 
@@ -138,6 +168,14 @@ func (c pluginConfig) initialDelay() time.Duration {
 
 func (c pluginConfig) httpTimeout() time.Duration {
 	return c.HTTPTimeout.or(defaultHTTPTimeout)
+}
+
+func (c pluginConfig) rateLimitFallback() time.Duration {
+	return c.RateLimitFallback.or(defaultRateLimitFallback)
+}
+
+func (c pluginConfig) warmupEnabled() bool {
+	return c.WarmupEnabled == nil || *c.WarmupEnabled
 }
 
 func (c pluginConfig) providerAllowed(provider string) bool {
@@ -217,6 +255,59 @@ func validateConfig(cfg *pluginConfig) error {
 	}
 	if strings.ContainsAny(cfg.UserAgent, "\r\n") {
 		return fmt.Errorf("user_agent contains invalid characters")
+	}
+	cfg.StateFile = strings.TrimSpace(cfg.StateFile)
+	if cfg.StateFile == "" {
+		cfg.StateFile = defaultPersistentStateFile()
+	}
+	stateFile, errPath := filepath.Abs(cfg.StateFile)
+	if errPath != nil {
+		return fmt.Errorf("resolve state_file: %w", errPath)
+	}
+	cfg.StateFile = stateFile
+	if cfg.rateLimitFallback() < time.Minute || cfg.rateLimitFallback() > 7*24*time.Hour {
+		return fmt.Errorf("rate_limit_fallback must be between 1m and 168h")
+	}
+	cfg.WarmupModel = strings.TrimSpace(cfg.WarmupModel)
+	if cfg.WarmupModel == "" {
+		cfg.WarmupModel = defaultWarmupModel
+	}
+	cfg.WarmupPrompt = strings.TrimSpace(cfg.WarmupPrompt)
+	if cfg.WarmupPrompt == "" {
+		cfg.WarmupPrompt = defaultWarmupPrompt
+	}
+	cfg.WarmupTimezone = strings.TrimSpace(cfg.WarmupTimezone)
+	if cfg.WarmupTimezone == "" {
+		cfg.WarmupTimezone = defaultWarmupTimezone
+	}
+	if _, errLocation := time.LoadLocation(cfg.WarmupTimezone); errLocation != nil {
+		return fmt.Errorf("warmup_timezone %q is invalid: %w", cfg.WarmupTimezone, errLocation)
+	}
+	seenIDs := make(map[string]struct{}, len(cfg.WarmupSchedules))
+	seenTimes := make(map[string]struct{}, len(cfg.WarmupSchedules))
+	for index := range cfg.WarmupSchedules {
+		item := &cfg.WarmupSchedules[index]
+		item.ID = strings.TrimSpace(item.ID)
+		item.At = strings.TrimSpace(item.At)
+		if item.ID == "" {
+			return fmt.Errorf("warmup_schedules[%d].id is required", index)
+		}
+		if _, duplicate := seenIDs[strings.ToLower(item.ID)]; duplicate {
+			return fmt.Errorf("warmup_schedules[%d].id %q is duplicated", index, item.ID)
+		}
+		seenIDs[strings.ToLower(item.ID)] = struct{}{}
+		if item.At == "" {
+			return fmt.Errorf("warmup_schedules[%d].at is required", index)
+		}
+		parsed, errParse := time.Parse("15:04", item.At)
+		if errParse != nil {
+			return fmt.Errorf("warmup_schedules[%d].at must use HH:MM", index)
+		}
+		item.At = parsed.Format("15:04")
+		if _, duplicate := seenTimes[item.At]; duplicate {
+			return fmt.Errorf("warmup_schedules[%d].at %q is duplicated", index, item.At)
+		}
+		seenTimes[item.At] = struct{}{}
 	}
 	return nil
 }

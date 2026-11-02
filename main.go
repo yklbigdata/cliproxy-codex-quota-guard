@@ -56,12 +56,13 @@ static void free_host_buffer(void* ptr, size_t len) {
 import "C"
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"unsafe"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 type envelope struct {
@@ -88,6 +89,8 @@ type registration struct {
 
 type registrationCapability struct {
 	ManagementAPI bool `json:"management_api"`
+	UsagePlugin   bool `json:"usage_plugin"`
+	Scheduler     bool `json:"scheduler"`
 }
 
 var guard = newGuardState()
@@ -156,6 +159,27 @@ func handleMethod(method string, request []byte) ([]byte, error) {
 		return okEnvelope(managementRegistrationPayload())
 	case pluginabi.MethodManagementHandle:
 		return handleManagement(request)
+	case pluginabi.MethodUsageHandle:
+		var record pluginapi.UsageRecord
+		if len(request) > 0 {
+			if errUnmarshal := json.Unmarshal(request, &record); errUnmarshal != nil {
+				return nil, fmt.Errorf("decode usage record: %w", errUnmarshal)
+			}
+		}
+		guard.HandleUsage(context.Background(), record)
+		return okEnvelope(map[string]any{})
+	case pluginabi.MethodSchedulerPick:
+		var pick pluginapi.SchedulerPickRequest
+		if len(request) > 0 {
+			if errUnmarshal := json.Unmarshal(request, &pick); errUnmarshal != nil {
+				return nil, fmt.Errorf("decode scheduler request: %w", errUnmarshal)
+			}
+		}
+		response, errPick := guard.Pick(context.Background(), pick)
+		if errPick != nil {
+			return nil, errPick
+		}
+		return okEnvelope(response)
 	case pluginabi.MethodPluginShutdown:
 		guard.stop()
 		return okEnvelope(map[string]any{})
@@ -179,10 +203,19 @@ func pluginRegistration() registration {
 				{Name: "poll_interval", Type: pluginapi.ConfigFieldTypeString, Description: "How often the quota sweep runs, for example 60s."},
 				{Name: "dry_run", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Report the decisions without writing credential state."},
 				{Name: "keep_at_least_one", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Never disable every credential of a provider; keep the one with the most remaining quota."},
+				{Name: "state_file", Type: pluginapi.ConfigFieldTypeString, Description: "Durable JSON state path for blocks, manual ownership, and warm-up results."},
+				{Name: "rate_limit_fallback", Type: pluginapi.ConfigFieldTypeString, Description: "Fallback block duration when a Codex 429 omits reset headers."},
+				{Name: "warmup_enabled", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Enable scheduled Codex quota warm-up requests."},
+				{Name: "warmup_model", Type: pluginapi.ConfigFieldTypeString, Description: "Model used for scheduled warm-up requests."},
+				{Name: "warmup_prompt", Type: pluginapi.ConfigFieldTypeString, Description: "Prompt used for scheduled warm-up requests."},
+				{Name: "warmup_timezone", Type: pluginapi.ConfigFieldTypeString, Description: "IANA timezone used by warm-up schedules."},
+				{Name: "warmup_schedules", Type: pluginapi.ConfigFieldTypeArray, Description: "Daily warm-up schedule entries with id, at (HH:MM), and enabled."},
 			},
 		},
 		Capabilities: registrationCapability{
 			ManagementAPI: true,
+			UsagePlugin:   true,
+			Scheduler:     true,
 		},
 	}
 }

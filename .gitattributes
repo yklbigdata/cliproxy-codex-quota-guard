@@ -1,0 +1,10 @@
+* text=auto
+
+*.go text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+
+*.so binary
+*.zip binary

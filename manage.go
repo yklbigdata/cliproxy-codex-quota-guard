@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	statusResourcePath = "/status"
+	statusResourcePath  = "/status"
 	resourceContentType = "text/html; charset=utf-8"
 )
 
