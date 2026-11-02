@@ -4,7 +4,7 @@
 
 `codex-quota-guard` 是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 原生插件。它根据 Codex 自己报告的额度，把耗尽额度的凭证移出路由池，并在额度恢复后重新启用。
 
-2.0.0 将额度守卫、429 处理、调度器过滤、定时预热和持久状态合并到一个插件。本部署中，它替代 `codex-429-autoban` 与 `codex-5h-quota-warmer`。
+2.1.0 将额度守卫、429 处理、调度器过滤、定时预热、持久状态和交互管理页合并到一个插件。本部署中，它替代 `codex-429-autoban` 与 `codex-5h-quota-warmer`。
 
 ## 功能
 
@@ -16,6 +16,7 @@
 - 可为每个符合条件的凭证执行每日预热。
 - 重启后恢复封锁、429、归属标记和预热去重状态。
 - 不自动启用插件外人工禁用的凭证。
+- 可在 CPA 插件页修改功能配置、立即巡检、立即预热，或清除单个凭证的插件封锁。
 
 ## 要求
 
@@ -124,6 +125,29 @@ plugins:
 
 `warmup_schedules` 为空时，不执行定时预热，但预热子系统保持启用。同一凭证在同一日程、同一本地日期最多执行一次；重启后仍保留该去重结果。
 
+## 管理页
+
+浏览器页面地址：
+
+```text
+/v0/resource/plugins/codex-quota-guard/status
+```
+
+页面使用 `remote-management.secret-key` 配置的全局 CPA Management Key。该密钥用于认证 `/v0/management` 和 `/v8/management`；它不是 OpenAI Key、Codex OAuth 凭证或代理客户端 API Key。页面通过 `Authorization: Bearer` 请求头把密钥发送给 CPA Management API。
+
+页面默认只在浏览器内存和 `sessionStorage` 中保留密钥。“Remember in this browser” 选项启用后，才会写入该浏览器的 `localStorage`。插件不会把密钥写入 HTML、状态文件、日志或仓库。
+
+页面使用 CPA 原生插件配置接口：
+
+```text
+GET   /v0/management/plugins/codex-quota-guard/config
+PATCH /v0/management/plugins/codex-quota-guard/config
+```
+
+保存前，页面先校验功能配置，再发送 PATCH。PATCH 使用浅合并，因此 `enabled`、`priority` 和其他 CPA 管理的未知字段会保留。页面不暴露 `providers`、`state_file`、`usage_url`、`user_agent`、`max_credentials`、`http_timeout` 等部署内部字段。
+
+页面可立即执行一次额度巡检、执行一次预热，并编辑每日预热日程。保存前会检测其他操作者是否修改过功能配置；发生并发修改时，页面要求重新加载。清除封锁必须指定一个凭证并在浏览器中确认。清除操作只移除插件拥有的额度和 429 封锁；插件外人工禁用的凭证不会被启用。
+
 ## 构建
 
 ```bash
@@ -170,7 +194,7 @@ plugins:
 http://127.0.0.1:8317/v0/resource/plugins/codex-quota-guard/status
 ```
 
-页面显示当前策略、状态文件路径、保存状态、预热状态和每个凭证的最近结果。
+使用 CPA Management Key 连接页面后，可查看实时工作状态、当前策略、状态保存情况、预热结果和每个凭证的最近结果。静态页面资源不包含凭证文件或密钥。
 
 检查持久状态且不输出凭证敏感字段：
 

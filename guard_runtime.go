@@ -2,11 +2,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	errGuardNotRunning     = errors.New("codex-quota-guard is not running")
+	errSweepInProgress     = errors.New("a quota sweep is already running")
+	errWarmupInProgress    = errors.New("warm-up is already running")
+	errWarmupDisabled      = errors.New("warm-up is disabled")
+	errCredentialNotFound  = errors.New("credential was not found")
+	errCredentialAmbiguous = errors.New("credential reference is ambiguous")
+	errCredentialManual    = errors.New("credential is disabled outside this plugin")
+	errNoManagedBlock      = errors.New("credential has no active plugin-owned block")
 )
 
 type guardState struct {
@@ -27,15 +39,20 @@ type guardState struct {
 	lastSweep      time.Time
 	lastSweepError string
 	lastSweepCause string
+	sweepRunning   bool
 	sweeps         int64
 	disableActions int64
 	enableActions  int64
 	errorCount     int64
 
-	cancel    context.CancelFunc
-	running   bool
-	startedAt time.Time
-	workerWG  sync.WaitGroup
+	cancel      context.CancelFunc
+	actionCtx   context.Context
+	actionsOpen bool
+	running     bool
+	startedAt   time.Time
+	workerWG    sync.WaitGroup
+	sweepMu     sync.Mutex
+	warmupMu    sync.Mutex
 
 	warmupRunning     bool
 	warmupLastRunAt   time.Time
@@ -115,6 +132,8 @@ func (s *guardState) stop() {
 	s.mu.Lock()
 	cancel := s.cancel
 	s.cancel = nil
+	s.actionCtx = nil
+	s.actionsOpen = false
 	s.running = false
 	s.mu.Unlock()
 	if cancel != nil {
@@ -127,6 +146,8 @@ func (s *guardState) restart() {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	s.cancel = cancel
+	s.actionCtx = ctx
+	s.actionsOpen = true
 	s.running = true
 	s.startedAt = time.Now().UTC()
 	cfg := clonePluginConfig(s.cfg)
@@ -157,7 +178,7 @@ func (s *guardState) loop(ctx context.Context, cfg pluginConfig) {
 		case <-timer.C:
 		}
 	}
-	s.sweep(ctx, "startup")
+	s.sweepExclusive(ctx, "startup")
 
 	ticker := time.NewTicker(cfg.pollInterval())
 	defer ticker.Stop()
@@ -166,9 +187,83 @@ func (s *guardState) loop(ctx context.Context, cfg pluginConfig) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.sweep(ctx, "interval")
+			s.sweepExclusive(ctx, "interval")
 		}
 	}
+}
+
+func (s *guardState) sweepExclusive(ctx context.Context, cause string) {
+	if ctx.Err() != nil {
+		return
+	}
+	s.sweepMu.Lock()
+	defer s.sweepMu.Unlock()
+	s.runSweepLocked(ctx, cause)
+}
+
+func (s *guardState) runSweepLocked(ctx context.Context, cause string) {
+	if ctx.Err() != nil {
+		return
+	}
+	s.mu.Lock()
+	s.sweepRunning = true
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.sweepRunning = false
+		s.mu.Unlock()
+	}()
+	s.sweep(ctx, cause)
+}
+
+func (s *guardState) startSweepAction() error {
+	if !s.sweepMu.TryLock() {
+		return errSweepInProgress
+	}
+	s.mu.Lock()
+	if !s.actionsOpen || s.actionCtx == nil {
+		s.mu.Unlock()
+		s.sweepMu.Unlock()
+		return errGuardNotRunning
+	}
+	ctx := s.actionCtx
+	s.workerWG.Add(1)
+	s.mu.Unlock()
+	go func() {
+		defer s.workerWG.Done()
+		defer s.sweepMu.Unlock()
+		s.runSweepLocked(ctx, "manual")
+	}()
+	return nil
+}
+
+func (s *guardState) startWarmupAction() error {
+	cfg := s.config()
+	if !cfg.warmupEnabled() {
+		return errWarmupDisabled
+	}
+	if !s.warmupMu.TryLock() {
+		return errWarmupInProgress
+	}
+	s.mu.Lock()
+	if !s.actionsOpen || s.actionCtx == nil {
+		s.mu.Unlock()
+		s.warmupMu.Unlock()
+		return errGuardNotRunning
+	}
+	ctx := s.actionCtx
+	s.workerWG.Add(1)
+	s.mu.Unlock()
+	go func() {
+		defer s.workerWG.Done()
+		defer s.warmupMu.Unlock()
+		if _, errRun := s.runWarmupLocked(ctx, cfg, "", "manual"); errRun != nil && ctx.Err() == nil {
+			hostLog("error", "codex-quota-guard: manual warm-up failed", map[string]any{
+				"error": errRun.Error(),
+			})
+		}
+	}()
+	return nil
 }
 
 func (s *guardState) persistState(reason string) error {
@@ -294,6 +389,7 @@ type statusSnapshot struct {
 	PluginVersion  string
 	Config         pluginConfig
 	Running        bool
+	SweepRunning   bool
 	StartedAt      time.Time
 	LastSweep      time.Time
 	LastSweepError string
@@ -331,6 +427,7 @@ func (s *guardState) snapshot() statusSnapshot {
 		PluginVersion:  pluginVersion,
 		Config:         cfg,
 		Running:        s.running,
+		SweepRunning:   s.sweepRunning,
 		StartedAt:      s.startedAt,
 		LastSweep:      s.lastSweep,
 		LastSweepError: s.lastSweepError,

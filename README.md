@@ -2,7 +2,7 @@
 
 `codex-quota-guard` is a native [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 plugin that keeps exhausted Codex credentials out of the routing pool and restores them after quota recovery.
 
-Version 2 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, and durable state in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
+Version 2.1 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, durable state, and an interactive management page in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
 
 ## Features
 
@@ -14,6 +14,7 @@ Version 2 combines quota enforcement, 429 handling, scheduler filtering, schedul
 - Run optional daily warm-up requests for each eligible credential.
 - Preserve block state, 429 state, ownership markers, and warm-up deduplication across restarts.
 - Never re-enable a credential that a person disabled outside the plugin.
+- Edit functional settings, run sweeps and warm-up, or clear one plugin-owned block from the CPA plugin page.
 
 ## Requirements
 
@@ -122,6 +123,29 @@ plugins:
 
 An empty `warmup_schedules` list disables scheduled runs while leaving the warm-up subsystem enabled. Each credential runs at most once for the same schedule and local calendar date, including after a restart.
 
+## Management page
+
+The browser page is served at:
+
+```text
+/v0/resource/plugins/codex-quota-guard/status
+```
+
+It uses the global CPA Management Key described by `remote-management.secret-key`. This is the key that authenticates `/v0/management` and `/v8/management`; it is not an OpenAI key, a Codex OAuth credential, or an API key for proxy clients. The key is sent to the CPA Management API as an `Authorization: Bearer` header.
+
+The page keeps the key in browser memory and `sessionStorage` by default. The optional remember setting stores it in `localStorage` for this browser only. The plugin does not write the key to its HTML, state file, logs, or repository.
+
+Native CPA plugin configuration endpoints are used:
+
+```text
+GET   /v0/management/plugins/codex-quota-guard/config
+PATCH /v0/management/plugins/codex-quota-guard/config
+```
+
+The page validates the functional settings before it sends a PATCH. PATCH performs a shallow merge, so `enabled`, `priority`, and unknown CPA-owned fields remain intact. Deployment-only settings such as `providers`, `state_file`, `usage_url`, `user_agent`, `max_credentials`, and `http_timeout` are not exposed in the page.
+
+The page can start one immediate quota sweep, start one warm-up pass, and edit daily warm-up schedules. It detects a concurrent functional-settings change before saving and asks the operator to reload. Block reset requires one credential and browser confirmation. It clears only plugin-owned quota and 429 blocks; credentials disabled outside the plugin remain disabled.
+
 ## Build
 
 ```bash
@@ -168,7 +192,7 @@ Open:
 http://127.0.0.1:8317/v0/resource/plugins/codex-quota-guard/status
 ```
 
-The page shows the active policy, state path, save status, warm-up status, and one row per credential.
+Connect the page with the CPA Management Key to view live worker state, active policy, state persistence, warm-up results, and one row per credential. The static resource does not contain credential files or secret values.
 
 Check persistence without exposing credentials:
 

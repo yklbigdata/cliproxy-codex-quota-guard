@@ -6,7 +6,7 @@
       "name": "Codex Quota Guard",
       "description": "Manages Codex credentials from reported quota, Codex 429 reset headers, scheduler filtering, scheduled warm-up, and durable non-secret state.",
       "author": "yklbigdata",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "repository": "https://github.com/yklbigdata/cliproxy-codex-quota-guard",
       "homepage": "https://github.com/yklbigdata/cliproxy-codex-quota-guard",
       "license": "MIT",
@@ -21,7 +21,7 @@
           {
             "goos": "linux",
             "goarch": "amd64",
-            "url": "https://github.com/yklbigdata/cliproxy-codex-quota-guard/releases/download/v2.0.0/codex-quota-guard_2.0.0_linux_amd64.zip",
+            "url": "https://github.com/yklbigdata/cliproxy-codex-quota-guard/releases/download/v2.1.0/codex-quota-guard_2.1.0_linux_amd64.zip",
             "sha256": "51eaeb7cdd536ecc3623de9b03b52c04aeb7438023bd4f78adbac52a7092ff77",
             "size": 3896663
           }

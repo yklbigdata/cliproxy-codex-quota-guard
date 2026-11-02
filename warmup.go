@@ -106,15 +106,18 @@ func mustLocation(name string) *time.Location {
 }
 
 func (s *guardState) runWarmup(ctx context.Context, cfg pluginConfig, scheduleKey, source string) ([]warmupResult, error) {
-	s.mu.Lock()
-	if s.warmupRunning {
-		s.mu.Unlock()
-		return nil, fmt.Errorf("warm-up is already running")
+	if !s.warmupMu.TryLock() {
+		return nil, errWarmupInProgress
 	}
+	defer s.warmupMu.Unlock()
+	return s.runWarmupLocked(ctx, cfg, scheduleKey, source)
+}
+
+func (s *guardState) runWarmupLocked(ctx context.Context, cfg pluginConfig, scheduleKey, source string) ([]warmupResult, error) {
 	if !cfg.warmupEnabled() {
-		s.mu.Unlock()
-		return nil, fmt.Errorf("warm-up is disabled")
+		return nil, errWarmupDisabled
 	}
+	s.mu.Lock()
 	s.warmupRunning = true
 	s.warmupLastSource = source
 	s.warmupLastError = ""
