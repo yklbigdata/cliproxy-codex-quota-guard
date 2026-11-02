@@ -334,23 +334,33 @@ func (s *guardState) bumpEnable() {
 	s.mu.Unlock()
 }
 
-func (s *guardState) storeReport(ref string, report credentialReport) {
+func (s *guardState) storeReport(key string, report credentialReport) {
 	s.mu.Lock()
 	if s.reports == nil {
 		s.reports = make(map[string]credentialReport)
 	}
-	s.reports[ref] = report
+	if key = strings.ToLower(strings.TrimSpace(key)); key != "" {
+		s.reports[key] = report
+	}
 	s.mu.Unlock()
 }
 
 func reportsFromPersistentState(state persistentState) map[string]credentialReport {
 	reports := make(map[string]credentialReport)
+	latestByCredential := make(map[string]string)
 	for _, item := range state.Credentials {
 		if item == nil {
 			continue
 		}
+		key := strings.ToLower(strings.TrimSpace(item.Key))
+		if key == "" {
+			key = credentialStateKey(item.AuthID, item.AuthIndex, item.Name)
+		}
+		if key == "" {
+			continue
+		}
 		report := credentialReport{
-			Ref:               item.Key,
+			Ref:               firstNonEmpty(item.Key, key),
 			AuthID:            item.AuthID,
 			AuthIndex:         item.AuthIndex,
 			Name:              item.Name,
@@ -380,7 +390,15 @@ func reportsFromPersistentState(state persistentState) map[string]credentialRepo
 			used := 100 - *item.ObservedQuota.WeeklyRemaining
 			report.WeeklyUsed = &used
 		}
-		reports[report.Ref] = report
+		identity := strings.ToLower(firstNonEmpty(item.Name, item.AuthID, item.AuthIndex, item.Key))
+		if previousKey, ok := latestByCredential[identity]; ok {
+			if !report.CheckedAt.After(reports[previousKey].CheckedAt) {
+				continue
+			}
+			delete(reports, previousKey)
+		}
+		reports[key] = report
+		latestByCredential[identity] = key
 	}
 	return reports
 }

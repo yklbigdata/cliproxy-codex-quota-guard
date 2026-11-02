@@ -11,6 +11,8 @@ const managementPageHTML = `<!doctype html>
     @media (prefers-color-scheme:dark){:root{--bg:#101419;--panel:#171d24;--text:#e7edf4;--muted:#9ba8b7;--line:#303b47;--accent:#60a5fa;--accent-2:#93c5fd;--good:#6ee7a1;--warn:#fbbf24;--bad:#fca5a5;--soft:#1b2a3a;--shadow:none}}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif}
     main{max-width:1280px;margin:0 auto;padding:28px 20px 64px}header{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;margin-bottom:22px}h1{font-size:1.55rem;margin:0 0 4px}h2{font-size:1.02rem;margin:0 0 14px}h3{font-size:.92rem;margin:0 0 10px}p{margin:.35rem 0}.muted{color:var(--muted)}.small{font-size:.82rem}.mono,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}.grid{display:grid;gap:14px}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}.field{display:grid;gap:6px}.field label,.label{font-weight:600;font-size:.86rem}.hint{color:var(--muted);font-size:.78rem}input,select,textarea,button{font:inherit}input[type=text],input[type=password],input[type=number],input[type=time],select,textarea{width:100%;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);padding:9px 10px}textarea{min-height:78px;resize:vertical}input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}button{border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);padding:8px 12px;cursor:pointer;font-weight:600}button:hover{border-color:var(--accent)}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button.primary:hover{background:var(--accent-2)}button.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}button:disabled{opacity:.48;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.check{display:flex;gap:8px;align-items:center;font-weight:600}.check input{width:16px;height:16px;accent-color:var(--accent)}.notice{min-height:22px;border-radius:9px;padding:9px 12px;background:var(--soft);display:none}.notice.show{display:block}.notice.error{color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel))}.notice.success{color:var(--good);background:color-mix(in srgb,var(--good) 10%,var(--panel))}.status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat{border:1px solid var(--line);border-radius:11px;padding:12px;min-height:74px}.stat .v{font-size:1.05rem;font-weight:700;margin-top:3px;overflow-wrap:anywhere}.pill{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:1px 7px;font-size:.74rem;font-weight:600;white-space:nowrap}.pill.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}.pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px}table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{background:color-mix(in srgb,var(--panel) 80%,var(--bg));position:sticky;top:0;z-index:1;font-size:.76rem;color:var(--muted)}tr:last-child td{border-bottom:0}.cell-main{font-weight:600}.cell-sub{color:var(--muted);font-size:.75rem;overflow-wrap:anywhere}.schedule-row{display:grid;grid-template-columns:minmax(150px,1fr) 140px auto auto;gap:9px;align-items:end;border-top:1px solid var(--line);padding-top:11px;margin-top:11px}.schedule-row:first-of-type{border-top:0;padding-top:0;margin-top:0}.section-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.hidden{display:none!important}.footer{color:var(--muted);font-size:.78rem;text-align:center;margin-top:24px}@media(max-width:900px){.grid-4,.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-2{grid-template-columns:1fr}}@media(max-width:620px){main{padding:18px 12px 44px}header{display:block}.status-grid,.grid-4{grid-template-columns:1fr}.schedule-row{grid-template-columns:1fr 1fr}.card{padding:14px;border-radius:11px}}
+    .language-control{display:flex;gap:7px;align-items:center}
+    .language-control select{width:auto;min-width:104px;padding:6px 8px}
   </style>
 </head>
 <body>
@@ -20,7 +22,10 @@ const managementPageHTML = `<!doctype html>
       <h1>Codex Quota Guard</h1>
       <p class="muted">Use Codex-reported quota to manage credentials, 429 blocks, scheduler filtering, and warm-up.</p>
     </div>
-    <div class="pill" id="version">not connected</div>
+    <div class="row">
+      <label class="language-control muted small"><span>Language</span><select id="language" aria-label="Language"><option value="zh-CN">中文</option><option value="en">English</option></select></label>
+      <div class="pill" id="version">not connected</div>
+    </div>
   </header>
 
   <section class="card">
@@ -97,7 +102,7 @@ const managementPageHTML = `<!doctype html>
     <p class="muted small" id="credentials-empty" style="margin-top:10px">No sweep data loaded.</p>
   </section>
 
-  <p class="footer">Codex Quota Guard 2.1.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.</p>
+  <p class="footer">Codex Quota Guard 2.2.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.</p>
 </main>
 <script>
 ` + managementPageScriptCore + managementPageScriptUI + managementPageScriptEvents + `
@@ -116,15 +121,295 @@ const managementPageScriptCore = `
   const CONFIG_API = "/v0/management/plugins/codex-quota-guard/config";
   const SESSION_KEY = "codexQuotaGuardManagementKey";
   const LOCAL_KEY = "codexQuotaGuardManagementKeyPersistent";
+  const LANGUAGE_KEY = "codexQuotaGuardLanguage";
+  const ZH_STATIC = {
+    "Language": "语言",
+    "Use Codex-reported quota to manage credentials, 429 blocks, scheduler filtering, and warm-up.": "根据 Codex 返回的额度管理凭证、429 封锁、调度过滤和定时预热。",
+    "not connected": "未连接",
+    "Management connection": "管理连接",
+    "CPA Management Key": "CPA 管理密钥",
+    "Enter the CPA management credential": "输入 CPA 管理凭据",
+    "This is the global CLIProxyAPI management credential. It is not an OpenAI key, Codex credential, or plugin key.": "这是 CLIProxyAPI 的全局管理凭据，不是 OpenAI Key、Codex 凭证或插件专用密钥。",
+    "Storage": "存储",
+    "Remember in this browser": "在此浏览器中记住",
+    "By default the key is kept only in this tab session. Browser persistence is opt-in. The plugin never stores this key.": "默认只在当前标签页会话中保存密钥。浏览器持久化需要手动启用，插件本身从不保存该密钥。",
+    "Connect and load": "连接并加载",
+    "Clear key": "清除密钥",
+    "Authentication is handled by the CPA management middleware.": "身份验证由 CPA 管理中间件处理。",
+    "Live status": "实时状态",
+    "The page reads live state after each connect. It does not embed credential data in the HTML resource.": "页面在每次连接后读取实时状态，不会在 HTML 资源中嵌入凭证数据。",
+    "Refresh": "刷新",
+    "Run quota sweep now": "立即巡检额度",
+    "Run warm-up now": "立即预热",
+    "Quota policy": "额度策略",
+    "These values are saved with a PATCH to the native CPA plugin configuration API. Unknown fields are preserved.": "这些值通过 PATCH 保存到 CPA 原生插件配置 API，未知字段会保留。",
+    "Reload": "重新加载",
+    "Validate and save": "校验并保存",
+    "Disable 5h at remaining (%)": "5 小时剩余额度低于（%）时禁用",
+    "Resume 5h at remaining (%)": "5 小时剩余额度高于（%）时恢复",
+    "Sweep interval": "巡检间隔",
+    "Duration format, minimum 15s.": "时长格式，最小值为 15 秒。",
+    "Initial delay": "启动延迟",
+    "Delay before the startup sweep.": "启动后首次巡检前的等待时间。",
+    "Enforce the 7-day window": "启用 7 天窗口策略",
+    "Disable 7d at remaining (%)": "7 天剩余额度低于（%）时禁用",
+    "Resume 7d at remaining (%)": "7 天剩余额度高于（%）时恢复",
+    "Keep at least one credential": "至少保留一个可用凭证",
+    "Dry run": "演练模式",
+    "429 fallback duration": "429 默认封锁时长",
+    "Used when a Codex 429 response has no reset header.": "当 Codex 返回 429 且没有重置时间响应头时使用。",
+    "Scheduled warm-up": "定时预热",
+    "Warm-up runs only for eligible Codex credentials. It skips manually disabled and actively blocked credentials.": "预热只对符合条件的 Codex 凭证执行，并跳过人工禁用或当前被封锁的凭证。",
+    "Add schedule": "添加日程",
+    "Enable scheduled warm-up": "启用定时预热",
+    "Warm-up model": "预热模型",
+    "IANA timezone": "IANA 时区",
+    "Warm-up prompt": "预热提示词",
+    "Daily schedules": "每日日程",
+    "No schedules configured.": "尚未配置日程。",
+    "Credentials and last decisions": "凭证与最近决策",
+    "Recent sweep decisions and warm-up results. Block reset is available only for plugin-owned state.": "显示最近巡检决策和预热结果。只有插件拥有的封锁状态可以清除。",
+    "Credential": "凭证",
+    "Plan": "套餐",
+    "5h used": "5 小时已用",
+    "7d used": "7 天已用",
+    "State": "状态",
+    "Action and reason": "动作与原因",
+    "Warm-up": "预热",
+    "Checked": "检查时间",
+    "Operation": "操作",
+    "No sweep data loaded.": "尚未加载巡检数据。",
+    "Schedule ID": "日程 ID",
+    "Local time": "本地时间",
+    "Enabled": "启用",
+    "Remove": "删除",
+    "Codex Quota Guard 2.2.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.": "Codex Quota Guard 2.2.0。设置通过 CPA Management API 保存。此页面不会返回凭证文件或令牌。"
+  };
+  const ZH_MESSAGES = {
+    "Management key cleared.": "管理密钥已清除。",
+    "Enter and connect a CPA Management Key first.": "请先输入并连接 CPA 管理密钥。",
+    "Authentication failed. Enter the current CPA Management Key again.": "身份验证失败，请重新输入当前 CPA 管理密钥。",
+    "Enter the CPA Management Key first.": "请先输入 CPA 管理密钥。",
+    "Connecting to the CPA Management API...": "正在连接 CPA Management API…",
+    "Connected. Live status and effective settings are loaded.": "连接成功，已加载实时状态和当前生效配置。",
+    "Live status refreshed.": "实时状态已刷新。",
+    "Connect first.": "请先连接。",
+    "Saved configuration and live status reloaded.": "已重新加载保存的配置和实时状态。",
+    "Reload settings before saving.": "保存前请先重新加载配置。",
+    "Functional settings changed after this page loaded them.": "页面加载后，功能配置已被其他操作修改。",
+    "{context}: The live configuration changed. Reload settings, review the values, and save again. {message}": "{context}：实时配置已变化。请重新加载、核对数值后再保存。{message}",
+    "{context}: {message}": "{context}：{message}",
+    "Configuration saved. Waiting for CPA to apply the plugin reconfiguration...": "配置已保存，正在等待 CPA 应用插件重配置…",
+    "Configuration saved and applied by the running plugin.": "配置已保存，运行中的插件已应用新配置。",
+    "Configuration is saved, but the running plugin has not reported the new values yet. Refresh status before another edit.": "配置已保存，但运行中的插件尚未报告新值。请在再次编辑前刷新状态。",
+    "{label} started.": "{label}已启动。",
+    "{label} failed": "{label}失败",
+    "The credential has no stable reference.": "该凭证没有稳定引用，无法执行操作。",
+    "Clear plugin-owned quota and 429 blocks for {name}?\n\nReference: {reference}\n\nThis does not enable credentials disabled outside this plugin.": "要清除 {name} 的插件额度封锁和 429 封锁吗？\n\n引用：{reference}\n\n此操作不会启用插件外人工禁用的凭证。",
+    "Plugin-owned blocks cleared for {name}.": "已清除 {name} 的插件封锁。",
+    "Block reset failed": "清除封锁失败",
+    "Key persistence enabled for this browser.": "已为此浏览器启用密钥持久化。",
+    "Key persistence disabled; the session copy remains.": "已关闭密钥持久化，当前会话中的副本仍保留。",
+    "Connect failed": "连接失败",
+    "Refresh failed": "刷新失败",
+    "Reload failed": "重新加载失败",
+    "Save failed": "保存失败",
+    "Quota sweep": "额度巡检",
+    "Warm-up": "预热",
+    "Worker": "工作线程",
+    "running": "运行中",
+    "stopped": "已停止",
+    "Started {time}": "启动于 {time}",
+    "Quota sweep": "额度巡检",
+    "idle": "空闲",
+    "{cause} · {count} total": "{cause} · 共 {count} 次",
+    "no sweep": "尚未巡检",
+    "startup": "启动",
+    "interval": "定时轮询",
+    "manual": "手动",
+    "429": "429 回调",
+    "Last sweep": "最近巡检",
+    "Next {time}": "下次 {time}",
+    "No enabled schedule": "没有启用的日程",
+    "Actions": "操作",
+    "{count} disabled": "禁用 {count} 次",
+    "{enabled} enabled · {errors} errors": "启用 {enabled} 次 · 错误 {errors} 次",
+    "State": "状态",
+    "read-only": "只读",
+    "writable": "可写",
+    "Saved {time}": "保存于 {time}",
+    "Not saved yet": "尚未保存",
+    "Warm-up results": "预热结果",
+    "{success} / {total}": "{success} / {total}",
+    "{count} skipped": "跳过 {count} 次",
+    "Health": "健康状态",
+    "needs attention": "需要关注",
+    "no state errors": "无状态错误",
+    "Persistent state and workers report no current error": "持久状态和工作线程当前均无错误",
+    "attention": "注意",
+    "manual disabled": "人工禁用",
+    "5h quota": "5 小时额度",
+    "429 active": "429 生效",
+    "plugin disabled": "插件已禁用",
+    "file disabled": "文件已禁用",
+    "runtime disabled": "运行时已禁用",
+    "within policy": "符合策略",
+    "reset in {duration}": "{duration}后重置",
+    "success": "成功",
+    "failed": "失败",
+    "Reset block": "清除封锁",
+    "none": "无",
+    "disabled": "已禁用",
+    "enabled": "已启用",
+    "error": "错误",
+    "skipped": "已跳过",
+    "rate_limited": "触发限流",
+    "{days}d {hours}h": "{days}天 {hours}小时",
+    "{hours}h {minutes}m": "{hours}小时 {minutes}分",
+    "{minutes}m": "{minutes}分"
+  };
+  const ZH_REASONS = {
+    "cannot identify credential": "无法识别凭证",
+    "cannot read credential": "无法读取凭证",
+    "cannot parse credential": "无法解析凭证",
+    "disabled outside this plugin; manual disable has priority": "该凭证在插件外被禁用，人工禁用优先",
+    "credential is manually disabled": "凭证已被人工禁用",
+    "runtime disabled outside this plugin": "凭证在插件外被运行时禁用",
+    "credential has no access token": "凭证没有访问令牌",
+    "cannot read Codex quota; existing blocks are preserved": "无法读取 Codex 额度，现有封锁保持不变",
+    "protected: keeping the last Codex credential available": "保护策略：保留最后一个可用的 Codex 凭证",
+    "disable failed": "禁用失败",
+    "update guard marker failed": "更新守卫标记失败",
+    "block expired": "封锁已到期",
+    "enable failed": "启用失败",
+    "within policy": "符合策略",
+    "manual plugin block reset": "已人工清除插件封锁",
+    "waiting for a 5h window reading": "正在等待 5 小时窗口数据"
+  };
+  const ZH = Object.assign({}, ZH_STATIC, ZH_MESSAGES, ZH_REASONS);
+  let LANG = detectLanguage();
+  const originalText = new WeakMap();
+  const originalAttributes = new WeakMap();
   const els = {};
   let managementKey = "";
   let currentStatus = null;
+  let noticeState = null;
 
   function byId(id) { return document.getElementById(id); }
-  function showNotice(text, kind) {
+  function detectLanguage() {
+    const saved = localStorage.getItem(LANGUAGE_KEY);
+    if (saved === "zh-CN" || saved === "en") return saved;
+    const browserLanguages = Array.isArray(navigator.languages) && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || "en"];
+    return browserLanguages.some(value => String(value).toLowerCase().startsWith("zh")) ? "zh-CN" : "en";
+  }
+  function interpolate(template, values) {
+    if (!values) return template;
+    return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => (
+      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match
+    ));
+  }
+  function t(key, values) {
+    const template = LANG === "zh-CN" && Object.prototype.hasOwnProperty.call(ZH, key) ? ZH[key] : key;
+    return interpolate(template, values);
+  }
+  function localizeKnownMessage(value) {
+    const text = String(value || "");
+    if (!text) return "";
+    const exact = t(text);
+    if (exact !== text) return exact;
+    let match = text.match(/^dry run: ([\s\S]+)$/);
+    if (match) return (LANG === "zh-CN" ? "演练：" : "dry run: ") + localizeKnownMessage(match[1]);
+    match = text.match(/^(5h|7d) window remaining ([\d.]+%) <= ([\d.]+%)$/);
+    if (match) return LANG === "zh-CN"
+      ? match[1] + " 窗口剩余 " + match[2] + " <= " + match[3]
+      : text;
+    match = text.match(/^(5h|7d) window remaining ([\d.]+%) < ([\d.]+%)$/);
+    if (match) return LANG === "zh-CN"
+      ? match[1] + " 窗口剩余 " + match[2] + " < " + match[3]
+      : text;
+    match = text.match(/^(5h|7d) window recovered to ([\d.]+%) remaining$/);
+    if (match) return LANG === "zh-CN"
+      ? match[1] + " 窗口已恢复至剩余 " + match[2]
+      : text;
+    match = text.match(/^429 rate limit active: ([\s\S]+)$/);
+    if (match) return LANG === "zh-CN"
+      ? "429 限流生效：" + localizeKnownMessage(match[1])
+      : text;
+    match = text.match(/^HTTP 429 from Codex; (5h|7d) window resets at ([\s\S]+)$/);
+    if (match) return LANG === "zh-CN"
+      ? "Codex 返回 HTTP 429；" + match[1] + " 窗口将在 " + match[2] + " 重置"
+      : text;
+    return text;
+  }
+  function setLocalizedText(node, key) {
+    node.dataset.i18nText = key;
+    node.textContent = t(key);
+    return node;
+  }
+  function applyLocalizedDom(root) {
+    root.querySelectorAll("[data-i18n-text]").forEach(node => {
+      node.textContent = t(node.dataset.i18nText || "");
+    });
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const parent = node.parentElement;
+      const current = originalText.has(node) ? originalText.get(node) : node.nodeValue;
+      if (!originalText.has(node)) originalText.set(node, current);
+      if (parent && !["SCRIPT", "STYLE", "OPTION"].includes(parent.tagName) && current.trim()) {
+        const match = current.match(/^(\s*)([\s\S]*?)(\s*)$/);
+        if (match) {
+          const translated = LANG === "zh-CN" ? (ZH_STATIC[match[2]] || match[2]) : match[2];
+          node.nodeValue = match[1] + translated + match[3];
+        }
+      }
+      node = walker.nextNode();
+    }
+    root.querySelectorAll("[placeholder], [title], [aria-label]").forEach(element => {
+      let values = originalAttributes.get(element);
+      if (!values) {
+        values = {};
+        originalAttributes.set(element, values);
+      }
+      ["placeholder", "title", "aria-label"].forEach(attribute => {
+        if (!element.hasAttribute(attribute)) return;
+        if (!Object.prototype.hasOwnProperty.call(values, attribute)) values[attribute] = element.getAttribute(attribute);
+        const original = values[attribute] || "";
+        const translated = LANG === "zh-CN" ? (ZH_STATIC[original] || original) : original;
+        element.setAttribute(attribute, translated);
+      });
+    });
+  }
+  function applyLanguage(next, persist) {
+    LANG = next === "zh-CN" ? "zh-CN" : "en";
+    if (persist) localStorage.setItem(LANGUAGE_KEY, LANG);
+    document.documentElement.lang = LANG;
+    if (els.language) els.language.value = LANG;
+    applyLocalizedDom(document.body);
+    renderNotice();
+    if (currentStatus) {
+      renderStatus(currentStatus);
+    } else if (els.version) {
+      els.version.textContent = t("not connected");
+    }
+  }
+  function renderNotice() {
+    const text = noticeState
+      ? (noticeState.key ? t(noticeState.key, noticeState.params) : localizeKnownMessage(noticeState.text))
+      : "";
     const node = els.notice;
-    node.textContent = text || "";
-    node.className = "notice" + (text ? " show" : "") + (kind ? " " + kind : "");
+    node.textContent = text;
+    node.className = "notice" + (text ? " show" : "") + (noticeState && noticeState.kind ? " " + noticeState.kind : "");
+  }
+  function showNotice(text, kind) {
+    noticeState = {text: String(text || ""), kind: kind || ""};
+    renderNotice();
+  }
+  function showNoticeKey(key, kind, params) {
+    noticeState = {key, kind: kind || "", params: params || null};
+    renderNotice();
   }
   function setConnectedUi(connected) {
     ["status-card", "settings-card", "warmup-card", "credentials-card"].forEach(id => {
@@ -145,7 +430,7 @@ const managementPageScriptCore = `
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(LOCAL_KEY);
     setConnectedUi(false);
-    showNotice("Management key cleared.", "success");
+    showNoticeKey("Management key cleared.", "success");
   }
   async function request(path, options) {
     if (!managementKey) throw new Error("Enter and connect a CPA Management Key first.");
@@ -172,7 +457,7 @@ const managementPageScriptCore = `
     if (!value) return "—";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString();
+    return date.toLocaleString(LANG, {dateStyle: "medium", timeStyle: "medium"});
   }
   function formatSeconds(value) {
     const seconds = Number(value || 0);
@@ -180,9 +465,9 @@ const managementPageScriptCore = `
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    if (days) return days + "d " + hours + "h";
-    if (hours) return hours + "h " + minutes + "m";
-    return Math.max(0, minutes) + "m";
+    if (days) return t("{days}d {hours}h", {days, hours});
+    if (hours) return t("{hours}h {minutes}m", {hours, minutes});
+    return t("{minutes}m", {minutes: Math.max(0, minutes)});
   }
   function pct(value) {
     return value === null || value === undefined ? "—" : Number(value).toFixed(Number(value) % 1 ? 1 : 0) + "%";
@@ -381,7 +666,7 @@ const managementPageScriptUI = `
     if (!items.length) {
       const empty = document.createElement("p");
       empty.className = "muted small";
-      empty.textContent = "No schedules configured.";
+      setLocalizedText(empty, "No schedules configured.");
       els.scheduleList.append(empty);
     } else {
       items.forEach(item => els.scheduleList.append(createScheduleRow(item)));
@@ -395,7 +680,7 @@ const managementPageScriptUI = `
 
     const idField = document.createElement("label");
     idField.className = "field";
-    idField.append(document.createTextNode("Schedule ID"));
+    idField.append(setLocalizedText(document.createElement("span"), "Schedule ID"));
     const id = document.createElement("input");
     id.type = "text";
     id.required = true;
@@ -407,7 +692,7 @@ const managementPageScriptUI = `
 
     const timeField = document.createElement("label");
     timeField.className = "field";
-    timeField.append(document.createTextNode("Local time"));
+    timeField.append(setLocalizedText(document.createElement("span"), "Local time"));
     const at = document.createElement("input");
     at.type = "time";
     at.required = true;
@@ -421,12 +706,12 @@ const managementPageScriptUI = `
     enabled.type = "checkbox";
     enabled.checked = schedule.enabled !== false;
     enabled.dataset.role = "enabled";
-    enabledLabel.append(enabled, document.createTextNode("Enabled"));
+    enabledLabel.append(enabled, setLocalizedText(document.createElement("span"), "Enabled"));
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "danger";
-    remove.textContent = "Remove";
+    setLocalizedText(remove, "Remove");
     remove.addEventListener("click", () => { row.remove(); ensureScheduleEmpty(); });
 
     row.append(idField, timeField, enabledLabel, remove);
@@ -436,7 +721,7 @@ const managementPageScriptUI = `
     if (!els.scheduleList.querySelector("[data-schedule-row]")) {
       const empty = document.createElement("p");
       empty.className = "muted small";
-      empty.textContent = "No schedules configured.";
+      setLocalizedText(empty, "No schedules configured.");
       els.scheduleList.append(empty);
     }
   }
@@ -462,7 +747,7 @@ const managementPageScriptUI = `
     card.className = "stat";
     const name = document.createElement("div");
     name.className = "muted small";
-    name.textContent = label;
+    name.textContent = t(label);
     const primary = document.createElement("div");
     primary.className = "v";
     primary.textContent = value || "—";
@@ -472,7 +757,7 @@ const managementPageScriptUI = `
       note.className = "cell-sub";
       note.textContent = sub;
       if (kind) note.append(" ");
-      if (kind) note.append(badge(kind === "bad" ? "attention" : kind, kind));
+      if (kind) note.append(badge(kind === "bad" ? t("attention") : t(kind), kind));
       card.append(note);
     }
     return card;
@@ -483,22 +768,22 @@ const managementPageScriptUI = `
     els.version.textContent = "v" + (status.plugin_version || "unknown");
     els.statusGrid.replaceChildren();
     const worker = status.running ? "running" : "stopped";
-    els.statusGrid.append(statCard("Worker", worker, status.started_at ? "Started " + formatTime(status.started_at) : "", status.running ? "ok" : "bad"));
-    els.statusGrid.append(statCard("Quota sweep", status.sweep_running ? "running" : "idle",
-      (status.last_sweep_cause || "no sweep") + " · " + Number(status.sweeps || 0) + " total", status.sweep_running ? "warn" : "ok"));
+    els.statusGrid.append(statCard("Worker", t(worker), status.started_at ? t("Started {time}", {time: formatTime(status.started_at)}) : "", status.running ? "ok" : "bad"));
+    els.statusGrid.append(statCard("Quota sweep", t(status.sweep_running ? "running" : "idle"),
+      t("{cause} · {count} total", {cause: localizeKnownMessage(status.last_sweep_cause || "no sweep"), count: Number(status.sweeps || 0)}), status.sweep_running ? "warn" : "ok"));
     els.statusGrid.append(statCard("Last sweep", formatTime(status.last_sweep),
-      "Next " + formatTime(status.next_sweep), ""));
-    els.statusGrid.append(statCard("Warm-up", status.warmup_running ? "running" : "idle",
-      status.next_warmup ? "Next " + formatTime(status.next_warmup) + (status.next_warmup_id ? " · " + status.next_warmup_id : "") : "No enabled schedule", status.warmup_running ? "warn" : ""));
-    els.statusGrid.append(statCard("Actions", Number(status.disables || 0) + " disabled",
-      Number(status.enables || 0) + " enabled · " + Number(status.errors || 0) + " errors", Number(status.errors || 0) ? "warn" : ""));
-    els.statusGrid.append(statCard("State", status.state_read_only ? "read-only" : "writable",
-      status.state_saved_at ? "Saved " + formatTime(status.state_saved_at) : "Not saved yet", status.state_read_only ? "bad" : "ok"));
-    els.statusGrid.append(statCard("Warm-up results", String(Number(status.warmup_success || 0)) + " / " + String(Number(status.warmup_results || 0)),
-      Number(status.warmup_skipped || 0) + " skipped", status.warmup_error ? "warn" : ""));
+      t("Next {time}", {time: formatTime(status.next_sweep)}), ""));
+    els.statusGrid.append(statCard("Warm-up", t(status.warmup_running ? "running" : "idle"),
+      status.next_warmup ? t("Next {time}", {time: formatTime(status.next_warmup)}) + (status.next_warmup_id ? " · " + status.next_warmup_id : "") : t("No enabled schedule"), status.warmup_running ? "warn" : ""));
+    els.statusGrid.append(statCard("Actions", t("{count} disabled", {count: Number(status.disables || 0)}),
+      t("{enabled} enabled · {errors} errors", {enabled: Number(status.enables || 0), errors: Number(status.errors || 0)}), Number(status.errors || 0) ? "warn" : ""));
+    els.statusGrid.append(statCard("State", t(status.state_read_only ? "read-only" : "writable"),
+      status.state_saved_at ? t("Saved {time}", {time: formatTime(status.state_saved_at)}) : t("Not saved yet"), status.state_read_only ? "bad" : "ok"));
+    els.statusGrid.append(statCard("Warm-up results", t("{success} / {total}", {success: Number(status.warmup_success || 0), total: Number(status.warmup_results || 0)}),
+      t("{count} skipped", {count: Number(status.warmup_skipped || 0)}), status.warmup_error ? "warn" : ""));
     const warningText = [status.state_error, status.last_sweep_error, status.warmup_error].filter(Boolean).join(" · ");
-    els.statusGrid.append(statCard("Health", warningText ? "needs attention" : "no state errors",
-      warningText || "Persistent state and workers report no current error", warningText ? "bad" : "ok"));
+    els.statusGrid.append(statCard("Health", t(warningText ? "needs attention" : "no state errors"),
+      warningText || t("Persistent state and workers report no current error"), warningText ? "bad" : "ok"));
 
     els.runSweep.disabled = !status.running || Boolean(status.sweep_running);
     els.runWarmup.disabled = !status.running || Boolean(status.warmup_running) || !(status.settings && status.settings.warmup_enabled);
@@ -514,18 +799,18 @@ const managementPageScriptUI = `
   function credentialState(report) {
     const wrap = document.createElement("div");
     wrap.className = "row";
-    if (report.manual_disabled) wrap.append(badge("manual disabled", "bad"));
-    if (report.quota_blocked) wrap.append(badge("5h quota", "warn"));
-    if (report.rate_limit_blocked) wrap.append(badge("429 active", "warn"));
-    if (report.managed) wrap.append(badge("plugin disabled", "warn"));
-    if (report.file_disabled && !report.managed && !report.manual_disabled) wrap.append(badge("file disabled", "bad"));
-    if (report.runtime_disabled && !report.file_disabled) wrap.append(badge("runtime disabled", "bad"));
-    if (!wrap.childNodes.length) wrap.append(badge("within policy", "ok"));
+    if (report.manual_disabled) wrap.append(badge(t("manual disabled"), "bad"));
+    if (report.quota_blocked) wrap.append(badge(t("5h quota"), "warn"));
+    if (report.rate_limit_blocked) wrap.append(badge(t("429 active"), "warn"));
+    if (report.managed) wrap.append(badge(t("plugin disabled"), "warn"));
+    if (report.file_disabled && !report.managed && !report.manual_disabled) wrap.append(badge(t("file disabled"), "bad"));
+    if (report.runtime_disabled && !report.file_disabled) wrap.append(badge(t("runtime disabled"), "bad"));
+    if (!wrap.childNodes.length) wrap.append(badge(t("within policy"), "ok"));
     return wrap;
   }
   function resetCaption(seconds) {
     if (!seconds) return "";
-    return "reset in " + formatSeconds(seconds);
+    return t("reset in {duration}", {duration: formatSeconds(seconds)});
   }
   function renderCredentials(credentials) {
     els.credentialsBody.replaceChildren();
@@ -546,11 +831,12 @@ const managementPageScriptUI = `
       const action = document.createElement("td");
       const actionWrap = document.createElement("div");
       actionWrap.className = "row";
-      actionWrap.append(badge(report.action || "none", actionKind(report.action)));
-      action.append(actionWrap, line("", [report.reason, report.error].filter(Boolean).join(": "), false));
+      actionWrap.append(badge(t(report.action || "none"), actionKind(report.action)));
+      const actionText = [localizeKnownMessage(report.reason), localizeKnownMessage(report.error)].filter(Boolean).join(": ");
+      action.append(actionWrap, line("", actionText, false));
       const warmup = document.createElement("td");
-      const warmupText = report.warmup_last_run_at ? (report.warmup_last_success ? "success" : "failed") : "—";
-      warmup.append(line(warmupText, report.warmup_last_error || (report.warmup_last_status ? "HTTP " + report.warmup_last_status : ""), false));
+      const warmupText = report.warmup_last_run_at ? t(report.warmup_last_success ? "success" : "failed") : "—";
+      warmup.append(line(warmupText, localizeKnownMessage(report.warmup_last_error) || (report.warmup_last_status ? "HTTP " + report.warmup_last_status : ""), false));
       const checked = document.createElement("td");
       checked.className = "muted";
       checked.textContent = formatTime(report.checked_at);
@@ -559,7 +845,7 @@ const managementPageScriptUI = `
         const reset = document.createElement("button");
         reset.type = "button";
         reset.className = "danger";
-        reset.textContent = "Reset block";
+        reset.textContent = t("Reset block");
         reset.addEventListener("click", () => resetBlock(report));
         operation.append(reset);
       } else {
@@ -589,6 +875,7 @@ const managementPageScriptEvents = `
   function initElements() {
     Object.assign(els, {
       version: byId("version"),
+      language: byId("language"),
       key: byId("management-key"),
       remember: byId("remember-key"),
       connect: byId("connect"),
@@ -644,10 +931,20 @@ const managementPageScriptEvents = `
       return;
     }
     if (error && error.status === 409) {
-      showNotice((context ? context + ": " : "") + "The live configuration changed. Reload settings, review the values, and save again. " + message, "error");
+      showNoticeKey("{context}: The live configuration changed. Reload settings, review the values, and save again. {message}", "error", {
+        context: t(context || "Save failed"),
+        message: localizeKnownMessage(message)
+      });
       return;
     }
-    showNotice((context ? context + ": " : "") + message, "error");
+    if (context) {
+      showNoticeKey("{context}: {message}", "error", {
+        context: t(context),
+        message: localizeKnownMessage(message)
+      });
+    } else {
+      showNotice(message, "error");
+    }
   }
   function setBaselines(rawConfig, status) {
     baselineConfig = cloneJson(rawConfig && typeof rawConfig === "object" ? rawConfig : {}, {});
@@ -800,11 +1097,11 @@ const managementPageScriptEvents = `
     }
     try {
       await request(path, {method: "POST"});
-      showNotice(label + " started.", "success");
+      showNoticeKey("{label} started.", "success", {label: t(label)});
       await refreshStatus(true);
       scheduleStatusPoll(500);
     } catch (error) {
-      handleRequestError(error, label + " failed");
+      handleRequestError(error, t(label) + " failed");
     }
   }
   async function resetBlock(report) {
@@ -814,20 +1111,24 @@ const managementPageScriptEvents = `
       showNotice("The credential has no stable reference.", "error");
       return;
     }
-    const confirmed = window.confirm("Clear plugin-owned quota and 429 blocks for " + name + "?\n\nReference: " + reference + "\n\nThis does not enable credentials disabled outside this plugin.");
+    const confirmed = window.confirm(t("Clear plugin-owned quota and 429 blocks for {name}?\n\nReference: {reference}\n\nThis does not enable credentials disabled outside this plugin.", {
+      name,
+      reference
+    }));
     if (!confirmed) return;
     try {
       await request(API + "/reset-block", {
         method: "POST",
         body: JSON.stringify({ref: reference})
       });
-      showNotice("Plugin-owned blocks cleared for " + name + ".", "success");
+      showNoticeKey("Plugin-owned blocks cleared for {name}.", "success", {name});
       await refreshStatus(true);
     } catch (error) {
-      handleRequestError(error, "Block reset failed");
+      handleRequestError(error, t("Block reset failed"));
     }
   }
   function bindEvents() {
+    els.language.addEventListener("change", () => applyLanguage(els.language.value, true));
     els.connect.addEventListener("click", connect);
     els.key.addEventListener("keydown", event => {
       if (event.key === "Enter") {
@@ -858,6 +1159,8 @@ const managementPageScriptEvents = `
   function boot() {
     initElements();
     bindEvents();
+    els.language.value = LANG;
+    applyLanguage(LANG, false);
     setConnectedUi(false);
     syncWeeklyControls();
     syncWarmupControls();

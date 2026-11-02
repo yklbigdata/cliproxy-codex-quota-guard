@@ -111,9 +111,11 @@ check_status() {
     exit 1
   fi
   grep -q "Codex Quota Guard" "$work_dir/status-$suffix.html"
-  grep -q "2.1.0" "$work_dir/status-$suffix.html"
+  grep -q "2.2.0" "$work_dir/status-$suffix.html"
   grep -q "Quota policy" "$work_dir/status-$suffix.html"
   grep -q "Scheduled warm-up" "$work_dir/status-$suffix.html"
+  grep -q 'id="language"' "$work_dir/status-$suffix.html"
+  grep -q 'codexQuotaGuardLanguage' "$work_dir/status-$suffix.html"
   if grep -Fq "$management_key" "$work_dir/status-$suffix.html"; then
     echo "status resource contains the management key" >&2
     exit 1

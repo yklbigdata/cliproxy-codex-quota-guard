@@ -70,6 +70,40 @@ func TestPersistentStateRebuildsReportsAfterRestart(t *testing.T) {
 	}
 }
 
+func TestPersistentReportsCollapseDuplicateCredentialIdentity(t *testing.T) {
+	now := time.Now().UTC()
+	state := newPersistentState()
+	older := &credentialState{
+		Key:          "old-auth-id",
+		AuthID:       "old-auth-id",
+		Name:         "codex-user.json",
+		Provider:     "codex",
+		LastAction:   actionNone,
+		LastActionAt: now.Add(-time.Hour),
+	}
+	newer := &credentialState{
+		Key:          "new-auth-id",
+		AuthID:       "new-auth-id",
+		Name:         "codex-user.json",
+		Provider:     "codex",
+		LastAction:   actionDisabled,
+		LastReason:   "quota blocked",
+		LastActionAt: now,
+	}
+	state.Credentials[older.Key] = older
+	state.Credentials[newer.Key] = newer
+
+	reports := reportsFromPersistentState(state)
+
+	if len(reports) != 1 {
+		t.Fatalf("report count = %d, want one deduplicated credential: %#v", len(reports), reports)
+	}
+	report, ok := reports[newer.Key]
+	if !ok || !report.CheckedAt.Equal(newer.LastActionAt) || report.Action != actionDisabled {
+		t.Fatalf("newest report = %#v, present=%t", report, ok)
+	}
+}
+
 func TestGuardMarkerRead(t *testing.T) {
 	document, err := parseAuthDocument([]byte(`{"access_token":"secret","disabled":true}`))
 	if err != nil {

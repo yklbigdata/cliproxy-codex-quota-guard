@@ -13,7 +13,7 @@ import (
 const (
 	pluginID      = "codex-quota-guard"
 	pluginName    = "Codex Quota Guard"
-	pluginVersion = "2.1.0"
+	pluginVersion = "2.2.0"
 	pluginAuthor  = "yklbigdata"
 	repositoryURL = "https://github.com/yklbigdata/cliproxy-codex-quota-guard"
 

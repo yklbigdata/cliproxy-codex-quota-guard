@@ -66,6 +66,13 @@ func (s *guardState) sweep(ctx context.Context, cause string) {
 		}
 		s.applyDecision(cfg, *decision, hostTimeout)
 	}
+	currentReports := make(map[string]struct{}, len(candidates))
+	for index := range candidates {
+		if key := credentialDecisionReportKey(&candidates[index]); key != "" {
+			currentReports[key] = struct{}{}
+		}
+	}
+	s.retainReports(currentReports)
 
 	s.mu.Lock()
 	s.lastSweep = time.Now().UTC()
@@ -475,8 +482,39 @@ func (s *guardState) finishDecision(decision credentialDecision, report credenti
 		item.LastActionAt = now
 		item.LastError = report.Error
 	}
-	s.reports[decision.ref] = report
+	if key := credentialDecisionReportKey(&decision); key != "" {
+		s.reports[key] = report
+	}
 	s.mu.Unlock()
+}
+
+func credentialDecisionReportKey(decision *credentialDecision) string {
+	if decision == nil {
+		return ""
+	}
+	if key := strings.TrimSpace(decision.stateKey); key != "" {
+		return strings.ToLower(key)
+	}
+	if decision.state != nil {
+		if key := strings.TrimSpace(decision.state.Key); key != "" {
+			return strings.ToLower(key)
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(decision.ref))
+}
+
+func (s *guardState) retainReports(current map[string]struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.reports == nil {
+		s.reports = make(map[string]credentialReport)
+		return
+	}
+	for key := range s.reports {
+		if _, ok := current[key]; !ok {
+			delete(s.reports, key)
+		}
+	}
 }
 
 func cloneManagedBlock(block *managedBlock) *managedBlock {

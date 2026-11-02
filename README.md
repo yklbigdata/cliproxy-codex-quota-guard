@@ -2,7 +2,7 @@
 
 `codex-quota-guard` is a native [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 plugin that keeps exhausted Codex credentials out of the routing pool and restores them after quota recovery.
 
-Version 2.1 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, durable state, and an interactive management page in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
+Version 2.2 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, durable state, and an interactive management page in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
 
 ## Features
 
@@ -15,6 +15,8 @@ Version 2.1 combines quota enforcement, 429 handling, scheduler filtering, sched
 - Preserve block state, 429 state, ownership markers, and warm-up deduplication across restarts.
 - Never re-enable a credential that a person disabled outside the plugin.
 - Edit functional settings, run sweeps and warm-up, or clear one plugin-owned block from the CPA plugin page.
+- Show each credential once, even after the credential reference changes or persisted state is rebuilt.
+- Switch the management page between Chinese and English without reconnecting or discarding unsaved fields.
 
 ## Requirements
 
@@ -145,6 +147,8 @@ PATCH /v0/management/plugins/codex-quota-guard/config
 The page validates the functional settings before it sends a PATCH. PATCH performs a shallow merge, so `enabled`, `priority`, and unknown CPA-owned fields remain intact. Deployment-only settings such as `providers`, `state_file`, `usage_url`, `user_agent`, `max_credentials`, and `http_timeout` are not exposed in the page.
 
 The page can start one immediate quota sweep, start one warm-up pass, and edit daily warm-up schedules. It detects a concurrent functional-settings change before saving and asks the operator to reload. Block reset requires one credential and browser confirmation. It clears only plugin-owned quota and 429 blocks; credentials disabled outside the plugin remain disabled.
+
+The language selector switches the page between Chinese and English immediately. It keeps the Management Key, loaded status, unsaved policy and warm-up fields, and schedule rows intact. The choice is stored in this browser's `localStorage`.
 
 ## Build
 

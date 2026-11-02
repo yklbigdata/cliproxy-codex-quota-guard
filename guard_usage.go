@@ -47,7 +47,7 @@ func (s *guardState) HandleUsage(_ context.Context, record pluginapi.UsageRecord
 		report.RateLimitWindow = block.Window
 		report.Reason = block.Reason
 		report.CheckedAt = now
-		s.storeReport(report.Ref, report)
+		s.storeReport(key, report)
 	}
 	if errPersist := s.persistState("429"); errPersist != nil {
 		hostLog("error", "codex-quota-guard: 429 block was not persisted", map[string]any{"error": errPersist.Error()})

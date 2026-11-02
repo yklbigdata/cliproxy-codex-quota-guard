@@ -21,10 +21,13 @@ func TestManagementResourceAndRegistration(t *testing.T) {
 	}
 	page := string(response.Body)
 	for _, expected := range []string{
-		"Codex Quota Guard 2.1.0",
+		"Codex Quota Guard 2.2.0",
 		"Quota policy",
 		"Scheduled warm-up",
 		"Credentials and last decisions",
+		`id="language"`,
+		`const LANGUAGE_KEY = "codexQuotaGuardLanguage";`,
+		`function applyLanguage(next, persist) {`,
 		"/v0/management/plugins/codex-quota-guard/config",
 	} {
 		if !strings.Contains(page, expected) {
@@ -44,6 +47,37 @@ func TestManagementResourceAndRegistration(t *testing.T) {
 	}
 	if len(registration.Resources) != 1 || registration.Resources[0].Path != statusResourcePath {
 		t.Fatalf("management resources = %#v", registration.Resources)
+	}
+}
+
+func TestFinishedDecisionUsesCanonicalPersistentReportKey(t *testing.T) {
+	persistent := newPersistentState()
+	item := persistent.ensure("auth-id", "auth-index", "codex-user.json", "user@example.com", "codex")
+	state := &guardState{
+		cfg:     defaultConfig(),
+		state:   persistent,
+		reports: map[string]credentialReport{item.Key: {Ref: "auth-index", Name: item.Name}},
+	}
+	decision := credentialDecision{
+		ref:      "auth-index",
+		stateKey: item.Key,
+		state:    cloneCredentialState(item),
+		report: credentialReport{
+			Ref:       "auth-index",
+			AuthID:    item.AuthID,
+			AuthIndex: item.AuthIndex,
+			Name:      item.Name,
+			Action:    actionNone,
+		},
+	}
+
+	state.finishDecision(decision, decision.report)
+
+	if len(state.reports) != 1 {
+		t.Fatalf("report count = %d, want one canonical report: %#v", len(state.reports), state.reports)
+	}
+	if report, ok := state.reports["auth-id"]; !ok || report.Ref != "auth-index" {
+		t.Fatalf("canonical report = %#v, present=%t", report, ok)
 	}
 }
 
