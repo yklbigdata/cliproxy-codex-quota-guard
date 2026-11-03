@@ -49,6 +49,25 @@ func TestSchedulerFiltersAndRejectsBlockedCandidates(t *testing.T) {
 	}
 }
 
+func TestSchedulerAllowsManualEnabledOverride(t *testing.T) {
+	now := time.Now().UTC()
+	guard := &guardState{cfg: defaultConfig(), state: newPersistentState(), reports: make(map[string]credentialReport)}
+	item := guard.state.ensure("manual-enabled", "", "", "", "codex")
+	item.ManualEnabled = true
+	item.QuotaBlock = &managedBlock{Kind: blockKindQuota5h, Window: "5h", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(time.Hour)}
+
+	response, err := guard.Pick(context.Background(), pluginapi.SchedulerPickRequest{
+		Provider:   "codex",
+		Candidates: []pluginapi.SchedulerAuthCandidate{{ID: "manual-enabled", Provider: "codex"}},
+	})
+	if err != nil {
+		t.Fatalf("pick: %v", err)
+	}
+	if !response.Handled || response.Reject || response.DelegateBuiltin != pluginapi.SchedulerBuiltinRoundRobin {
+		t.Fatalf("manual-enabled response = %#v", response)
+	}
+}
+
 func TestSchedulerDelegatesWhenAllCandidatesEligible(t *testing.T) {
 	guard := &guardState{cfg: defaultConfig(), state: newPersistentState(), reports: make(map[string]credentialReport)}
 	response, err := guard.Pick(context.Background(), pluginapi.SchedulerPickRequest{

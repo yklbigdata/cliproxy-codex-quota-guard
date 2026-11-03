@@ -197,7 +197,7 @@ func (s *guardState) Pick(ctx context.Context, request pluginapi.SchedulerPickRe
 		if item.refreshExpired(now) {
 			dirty = true
 		}
-		if item.ManualDisabled || item.blocked(now) {
+		if item.ManualDisabled || (!item.ManualEnabled && item.blocked(now)) {
 			continue
 		}
 		available = append(available, candidate)

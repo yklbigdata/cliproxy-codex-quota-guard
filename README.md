@@ -2,7 +2,7 @@
 
 `codex-quota-guard` is a native [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 plugin that keeps exhausted Codex credentials out of the routing pool and restores them after quota recovery.
 
-Version 2.2 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, durable state, and an interactive management page in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
+Version 2.3 combines quota enforcement, 429 handling, scheduler filtering, scheduled warm-up, durable state, and an interactive management page in one plugin. It replaces `codex-429-autoban` and `codex-5h-quota-warmer` for this deployment.
 
 ## Features
 
@@ -14,7 +14,8 @@ Version 2.2 combines quota enforcement, 429 handling, scheduler filtering, sched
 - Run optional daily warm-up requests for each eligible credential.
 - Preserve block state, 429 state, ownership markers, and warm-up deduplication across restarts.
 - Never re-enable a credential that a person disabled outside the plugin.
-- Edit functional settings, run sweeps and warm-up, or clear one plugin-owned block from the CPA plugin page.
+- Edit functional settings directly in the CPA plugin page, apply them immediately, run sweeps and warm-up, or reset one plugin-owned block.
+- Keep credentials that an operator explicitly re-enables exempt from automatic quota and 429 disabling until the operator restores automatic policy.
 - Show each credential once, even after the credential reference changes or persisted state is rebuilt.
 - Switch the management page between Chinese and English without reconnecting or discarding unsaved fields.
 
@@ -45,6 +46,8 @@ The scheduler plugin also applies persisted quota, 429, and manual-disable block
 A credential disabled by this plugin contains a managed `codex_quota_guard` marker. The plugin only automatically enables a credential when that marker proves ownership.
 
 A credential with `disabled: true` and no managed marker has priority and is treated as manually disabled. The plugin does not probe its quota or enable it.
+
+If an operator re-enables a credential that the plugin owns, the plugin records a persistent manual-enable protection. The protection survives restarts. It suppresses automatic quota and 429 disabling until the operator chooses **Resume policy**. A later manual disable takes priority over this protection.
 
 ## 429 handling
 
@@ -99,7 +102,7 @@ plugins:
       poll_interval: 60s
       initial_delay: 15s
       http_timeout: 25s
-      keep_at_least_one: true
+      keep_at_least_one: false
       dry_run: false
 
       max_credentials: 50
@@ -121,7 +124,7 @@ plugins:
 
 `resume_above_remaining_percent` must be greater than `disable_below_remaining_percent`. The same hysteresis rule applies to the 7-day policy.
 
-`keep_at_least_one` protects the quota policy only. It does not override a 429 block or a manual disable.
+`keep_at_least_one` defaults to `false`, so two credentials that independently hit a disable condition can both be disabled. Set it to `true` only when one credential must remain available. It protects the quota policy only; it does not override a 429 block or a manual disable.
 
 An empty `warmup_schedules` list disables scheduled runs while leaving the warm-up subsystem enabled. Each credential runs at most once for the same schedule and local calendar date, including after a restart.
 
@@ -144,9 +147,9 @@ GET   /v0/management/plugins/codex-quota-guard/config
 PATCH /v0/management/plugins/codex-quota-guard/config
 ```
 
-The page validates the functional settings before it sends a PATCH. PATCH performs a shallow merge, so `enabled`, `priority`, and unknown CPA-owned fields remain intact. Deployment-only settings such as `providers`, `state_file`, `usage_url`, `user_agent`, `max_credentials`, and `http_timeout` are not exposed in the page.
+The page validates the functional settings before it sends a PATCH. PATCH performs a shallow merge, so `enabled`, `priority`, and unknown CPA-owned fields remain intact. The page then calls the plugin's `POST /v0/management/plugins/codex-quota-guard/apply-config` route to apply the patch to the running plugin immediately and starts one quota sweep. Deployment-only settings such as `providers`, `state_file`, `usage_url`, `user_agent`, `max_credentials`, and `http_timeout` are not exposed in the page.
 
-The page can start one immediate quota sweep, start one warm-up pass, and edit daily warm-up schedules. It detects a concurrent functional-settings change before saving and asks the operator to reload. Block reset requires one credential and browser confirmation. It clears only plugin-owned quota and 429 blocks; credentials disabled outside the plugin remain disabled.
+The page can start one immediate quota sweep, start a warm-up pass, and edit daily warm-up schedules. It checks only fields that the operator changed for concurrent edits before saving. Block reset requires one credential and browser confirmation. It clears only plugin-owned quota and 429 blocks; credentials disabled outside the plugin remain disabled. A protected credential shows **Resume policy** so the operator can deliberately restore automatic enforcement.
 
 The language selector switches the page between Chinese and English immediately. It keeps the Management Key, loaded status, unsaved policy and warm-up fields, and schedule rows intact. The choice is stored in this browser's `localStorage`.
 

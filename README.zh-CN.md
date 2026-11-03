@@ -4,7 +4,7 @@
 
 `codex-quota-guard` 是 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) v8 原生插件。它根据 Codex 自己报告的额度，把耗尽额度的凭证移出路由池，并在额度恢复后重新启用。
 
-2.2.0 将额度守卫、429 处理、调度器过滤、定时预热、持久状态和交互管理页合并到一个插件。本部署中，它替代 `codex-429-autoban` 与 `codex-5h-quota-warmer`。
+2.3.0 将额度守卫、429 处理、调度器过滤、定时预热、持久状态和交互管理页合并到一个插件。本部署中，它替代 `codex-429-autoban` 与 `codex-5h-quota-warmer`。
 
 ## 功能
 
@@ -16,7 +16,8 @@
 - 可为每个符合条件的凭证执行每日预热。
 - 重启后恢复封锁、429、归属标记和预热去重状态。
 - 不自动启用插件外人工禁用的凭证。
-- 可在 CPA 插件页修改功能配置、立即巡检、立即预热，或清除单个凭证的插件封锁。
+- 可在 CPA 插件页直接修改并立即应用功能配置、立即巡检、立即预热，或清除单个凭证的插件封锁。
+- 操作员主动重新启用凭证后，插件暂停对该凭证执行自动额度和 429 禁用，直到操作员恢复自动策略。
 - 即使凭证引用发生变化或持久状态被重建，每个凭证也只显示一次。
 - 管理页可在中文和英文之间切换，不重新连接，也不丢弃未保存字段。
 
@@ -47,6 +48,8 @@
 插件禁用凭证时，会在凭证 JSON 中写入 `codex_quota_guard` 归属标记。只有该标记存在时，插件才会自动重新启用凭证。
 
 凭证为 `disabled: true` 且没有该标记时，插件将其视为人工禁用。人工禁用优先级最高；插件不读取它的额度，也不启用它。
+
+操作员启用插件此前禁用的凭证后，插件持久记录“人工启用保护”。该保护在重启后仍然有效，并阻止额度和 429 自动禁用。操作员点击“恢复自动策略”后才解除保护。操作员随后主动禁用凭证时，人工禁用优先。
 
 ## 429 处理
 
@@ -101,7 +104,7 @@ plugins:
       poll_interval: 60s
       initial_delay: 15s
       http_timeout: 25s
-      keep_at_least_one: true
+      keep_at_least_one: false
       dry_run: false
 
       max_credentials: 50
@@ -123,7 +126,7 @@ plugins:
 
 `resume_above_remaining_percent` 必须大于 `disable_below_remaining_percent`。7d 策略也使用相同的滞回规则。
 
-`keep_at_least_one` 只保护额度策略，不覆盖 429 封锁或人工禁用。
+`keep_at_least_one` 默认是 `false`。两个凭证分别达到禁用条件时，都会被禁用。只有确实需要保留一个可用凭证时才设为 `true`。它只保护额度策略，不覆盖 429 封锁或人工禁用。
 
 `warmup_schedules` 为空时，不执行定时预热，但预热子系统保持启用。同一凭证在同一日程、同一本地日期最多执行一次；重启后仍保留该去重结果。
 
@@ -146,9 +149,9 @@ GET   /v0/management/plugins/codex-quota-guard/config
 PATCH /v0/management/plugins/codex-quota-guard/config
 ```
 
-保存前，页面先校验功能配置，再发送 PATCH。PATCH 使用浅合并，因此 `enabled`、`priority` 和其他 CPA 管理的未知字段会保留。页面不暴露 `providers`、`state_file`、`usage_url`、`user_agent`、`max_credentials`、`http_timeout` 等部署内部字段。
+保存前，页面先校验功能配置，再发送 PATCH。PATCH 使用浅合并，因此 `enabled`、`priority` 和其他 CPA 管理的未知字段会保留。随后页面调用插件的 `POST /v0/management/plugins/codex-quota-guard/apply-config`，立即应用运行配置并启动一次额度巡检。页面不暴露 `providers`、`state_file`、`usage_url`、`user_agent`、`max_credentials`、`http_timeout` 等部署内部字段。
 
-页面可立即执行一次额度巡检、执行一次预热，并编辑每日预热日程。保存前会检测其他操作者是否修改过功能配置；发生并发修改时，页面要求重新加载。清除封锁必须指定一个凭证并在浏览器中确认。清除操作只移除插件拥有的额度和 429 封锁；插件外人工禁用的凭证不会被启用。
+页面可立即执行一次额度巡检、执行预热，并编辑每日预热日程。保存前只检查操作员实际修改的字段是否发生并发变更。清除封锁必须指定一个凭证并在浏览器中确认。清除操作只移除插件拥有的额度和 429 封锁；插件外人工禁用的凭证不会被启用。受保护的凭证显示“恢复自动策略”按钮，供操作员明确恢复自动禁用。
 
 页面的语言选择器会立即在中文和英文之间切换。切换时保留 Management Key、已加载状态、未保存的额度策略和预热字段、日程行。选择结果保存在当前浏览器的 `localStorage` 中。
 

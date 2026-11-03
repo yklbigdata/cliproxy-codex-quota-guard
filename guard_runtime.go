@@ -369,6 +369,7 @@ func reportsFromPersistentState(state persistentState) map[string]credentialRepo
 			PlanType:          item.ObservedQuota.PlanType,
 			Managed:           item.DisabledByPlugin,
 			ManualDisabled:    item.ManualDisabled,
+			ManualEnabled:     item.ManualEnabled,
 			RateLimitResetAt:  blockResetAt(item.RateLimitBlock),
 			RateLimitWindow:   blockWindow(item.RateLimitBlock),
 			WarmupLastRunAt:   item.Warmup.LastRunAt,

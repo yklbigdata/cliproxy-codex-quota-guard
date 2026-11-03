@@ -50,7 +50,7 @@ func (s *guardState) resetManagedBlocks(ctx context.Context, reference string) (
 	if target.state.ManualDisabled {
 		return managementCredential{}, errCredentialManual
 	}
-	if !hasActiveBlock && !target.state.DisabledByPlugin && !target.report.Managed {
+	if !hasActiveBlock && !target.state.DisabledByPlugin && !target.state.ManualEnabled && !target.report.Managed {
 		return managementCredential{}, errNoManagedBlock
 	}
 
@@ -73,6 +73,7 @@ func (s *guardState) resetManagedBlocks(ctx context.Context, reference string) (
 	clearManagedBlock(&nextState.QuotaBlock)
 	clearManagedBlock(&nextState.RateLimitBlock)
 	nextState.DisabledByPlugin = false
+	nextState.ManualEnabled = false
 
 	if marker != nil {
 		decision := credentialDecision{
@@ -103,6 +104,7 @@ func (s *guardState) resetManagedBlocks(ctx context.Context, reference string) (
 	report.RuntimeDisabled = false
 	report.Managed = false
 	report.ManualDisabled = false
+	report.ManualEnabled = false
 	report.QuotaBlocked = false
 	report.RateLimitBlocked = false
 	report.RateLimitResetAt = time.Time{}
@@ -127,6 +129,7 @@ func (s *guardState) resetManagedBlocks(ctx context.Context, reference string) (
 	item.RateLimitBlock = cloneManagedBlock(nextState.RateLimitBlock)
 	item.DisabledByPlugin = false
 	item.ManualDisabled = false
+	item.ManualEnabled = false
 	item.LastAction = report.Action
 	item.LastReason = report.Reason
 	item.LastActionAt = now
@@ -224,6 +227,7 @@ func findCredentialReport(stateKey string, item *credentialState, reports map[st
 		Provider:         item.Provider,
 		Managed:          item.DisabledByPlugin,
 		ManualDisabled:   item.ManualDisabled,
+		ManualEnabled:    item.ManualEnabled,
 		QuotaBlocked:     item.QuotaBlock.active(now),
 		RateLimitBlocked: item.RateLimitBlock.active(now),
 		Action:           item.LastAction,
@@ -290,6 +294,7 @@ func managementCredentialFromReport(report credentialReport) managementCredentia
 		RuntimeDisabled:   report.RuntimeDisabled,
 		Managed:           report.Managed,
 		ManualDisabled:    report.ManualDisabled,
+		ManualEnabled:     report.ManualEnabled,
 		QuotaBlocked:      report.QuotaBlocked,
 		RateLimitBlocked:  report.RateLimitBlocked,
 		CanResetBlock:     false,

@@ -16,7 +16,8 @@ func TestStateFileRoundTripAndPermissions(t *testing.T) {
 	state := newPersistentState()
 	item := state.ensure("auth-1", "index-1", "codex-user.json", "user@example.com", "codex")
 	item.ManualDisabled = false
-	item.DisabledByPlugin = true
+	item.ManualEnabled = true
+	item.DisabledByPlugin = false
 	item.QuotaBlock = &managedBlock{Kind: blockKindQuota5h, Window: "5h", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(time.Hour)}
 	item.RateLimitBlock = &managedBlock{Kind: blockKindRateLimit, Window: "7d", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(24 * time.Hour)}
 	item.Warmup = warmupCredentialState{LastRunAt: now, LastRunKey: "daily", LastSuccess: true, LastStatus: 200}
@@ -45,7 +46,7 @@ func TestStateFileRoundTripAndPermissions(t *testing.T) {
 		t.Fatalf("load state: %v", err)
 	}
 	got := loaded.lookup("auth-1", "index-1", "codex-user.json")
-	if got == nil || got.RateLimitBlock == nil || !got.RateLimitBlock.ResetAt.Equal(item.RateLimitBlock.ResetAt) {
+	if got == nil || !got.ManualEnabled || got.RateLimitBlock == nil || !got.RateLimitBlock.ResetAt.Equal(item.RateLimitBlock.ResetAt) {
 		t.Fatalf("loaded credential did not preserve rate-limit state: %#v", got)
 	}
 	if loaded.Warmup.Results != 1 || loaded.Warmup.Success != 1 || loaded.LastSweepCause != "interval" {

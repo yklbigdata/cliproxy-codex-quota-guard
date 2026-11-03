@@ -177,25 +177,28 @@ func (s *guardState) inspectCredential(ctx context.Context, cfg pluginConfig, en
 	decision.rateActive = decision.rateBlock.active(now)
 	decision.quotaActive = decision.quotaBlock.active(now)
 
-	if !fileDisabled && !runtimeDisabled {
-		decision.state.ManualDisabled = false
+	manual, clearMarker, manualReason := reconcileCredentialMode(decision.state, markerHasBlocks(marker), fileDisabled, runtimeDisabled)
+	if clearMarker {
+		if errClear := s.writeCredentialRecord(cfg, decision, fileDisabled, false, hostTimeout); errClear != nil {
+			decision.report.ManualEnabled = decision.state.ManualEnabled
+			decision.report.ManualDisabled = decision.state.ManualDisabled
+			decision.report.Action = actionError
+			decision.report.Error = errClear.Error()
+			decision.report.Reason = "clear guard marker failed"
+			decision.fillBlockReport(now)
+			s.bumpError()
+			return decision
+		}
 	}
-	if fileDisabled && !markerHasBlocks(marker) {
-		decision.manual = true
-		decision.state.ManualDisabled = true
-		decision.state.DisabledByPlugin = false
-		decision.report.ManualDisabled = true
+	decision.manual = manual
+	decision.manualEnabled = decision.state.ManualEnabled
+	decision.report.ManualDisabled = decision.state.ManualDisabled
+	decision.report.ManualEnabled = decision.manualEnabled
+	if manual {
+		decision.managed = false
+		decision.report.Managed = false
 		decision.report.Action = actionSkipped
-		decision.report.Reason = "disabled outside this plugin; manual disable has priority"
-		decision.fillBlockReport(now)
-		return decision
-	}
-
-	if decision.state.ManualDisabled {
-		decision.manual = true
-		decision.report.ManualDisabled = true
-		decision.report.Action = actionSkipped
-		decision.report.Reason = "credential is manually disabled"
+		decision.report.Reason = manualReason
 		decision.fillBlockReport(now)
 		return decision
 	}
@@ -251,6 +254,39 @@ func (s *guardState) inspectCredential(ctx context.Context, cfg pluginConfig, en
 	decision.report.RateLimitResetAt = blockResetAt(decision.rateBlock)
 	decision.report.RateLimitWindow = blockWindow(decision.rateBlock)
 	return decision
+}
+
+// reconcileCredentialMode separates user actions from plugin-owned state. A
+// credential that was disabled by this plugin and is now enabled is treated as
+// a manual override. A manual disable always has priority over an override.
+func reconcileCredentialMode(state *credentialState, markerManaged, fileDisabled, runtimeDisabled bool) (manual bool, clearMarker bool, reason string) {
+	if state == nil {
+		return false, false, ""
+	}
+	if !fileDisabled && !runtimeDisabled && (state.ManualDisabled || state.DisabledByPlugin || markerManaged) {
+		state.ManualDisabled = false
+		state.ManualEnabled = true
+		state.DisabledByPlugin = false
+		return false, markerManaged, "manual enable override: quota disable suppressed"
+	}
+	if state.ManualDisabled {
+		state.ManualEnabled = false
+		state.DisabledByPlugin = false
+		return true, markerManaged, "credential is manually disabled"
+	}
+	if fileDisabled && state.ManualEnabled {
+		state.ManualDisabled = true
+		state.ManualEnabled = false
+		state.DisabledByPlugin = false
+		return true, markerManaged, "disabled outside this plugin; manual disable has priority"
+	}
+	if fileDisabled && !markerManaged {
+		state.ManualDisabled = true
+		state.ManualEnabled = false
+		state.DisabledByPlugin = false
+		return true, false, "disabled outside this plugin; manual disable has priority"
+	}
+	return false, false, ""
 }
 
 func applyMarkerBlocks(decision *credentialDecision, marker *guardMarker, now time.Time) {
@@ -312,6 +348,10 @@ func (s *guardState) applyDecision(cfg pluginConfig, decision credentialDecision
 	}
 
 	desiredDisabled := decision.rateActive || decision.quotaActive
+	if decision.manualEnabled && desiredDisabled {
+		desiredDisabled = false
+		report.Reason = "manual enable override: quota disable suppressed"
+	}
 	if decision.protected && desiredDisabled {
 		desiredDisabled = false
 		report.Reason = "protected: keeping the last Codex credential available"
@@ -405,12 +445,16 @@ func (s *guardState) enableCredential(cfg pluginConfig, decision credentialDecis
 }
 
 func (s *guardState) writeCredentialState(cfg pluginConfig, decision credentialDecision, disabled bool, timeout time.Duration) error {
+	return s.writeCredentialRecord(cfg, decision, disabled, disabled, timeout)
+}
+
+func (s *guardState) writeCredentialRecord(cfg pluginConfig, decision credentialDecision, disabled, managed bool, timeout time.Duration) error {
 	if decision.document == nil {
 		return fmt.Errorf("credential document is unavailable")
 	}
 	document := decision.document
 	document.setBool("disabled", disabled)
-	if disabled {
+	if disabled && managed {
 		marker, errMarker := json.Marshal(markerFromBlocks(decision.state, time.Now().UTC()))
 		if errMarker != nil {
 			return errMarker
@@ -472,6 +516,7 @@ func (s *guardState) finishDecision(decision credentialDecision, report credenti
 		item.Email = firstNonEmpty(item.Email, decision.report.Email)
 		item.Provider = firstNonEmpty(item.Provider, decision.report.Provider)
 		item.ManualDisabled = decision.state.ManualDisabled
+		item.ManualEnabled = decision.state.ManualEnabled
 		item.DisabledByPlugin = decision.state.DisabledByPlugin
 		item.QuotaBlock = cloneManagedBlock(decision.quotaBlock)
 		item.RateLimitBlock = cloneManagedBlock(decision.rateBlock)

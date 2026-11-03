@@ -29,6 +29,8 @@ func TestQuotaBlockHysteresis(t *testing.T) {
 
 func TestKeepAtLeastOneProtectsOnlyQuotaBlockedCredential(t *testing.T) {
 	cfg := defaultConfig()
+	keepOne := true
+	cfg.KeepAtLeastOne = &keepOne
 	now := time.Now().UTC()
 	block := &managedBlock{Kind: blockKindQuota5h, Window: "5h", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(time.Hour)}
 	used := 99.0
@@ -49,6 +51,50 @@ func TestKeepAtLeastOneProtectsOnlyQuotaBlockedCredential(t *testing.T) {
 	protected := protectedQuotaCredential(cfg, []credentialDecision{manual, rateLimited, blocked("free")}, now)
 	if protected != "free" {
 		t.Fatalf("protected credential = %q, want free", protected)
+	}
+}
+
+func TestKeepAtLeastOneDefaultsOffAndCanBeExplicitlyEnabled(t *testing.T) {
+	cfg := defaultConfig()
+	if cfg.keepAtLeastOne() {
+		t.Fatal("keep_at_least_one must default to false")
+	}
+	enabled := true
+	cfg.KeepAtLeastOne = &enabled
+	if !cfg.keepAtLeastOne() {
+		t.Fatal("explicit keep_at_least_one=true must remain supported")
+	}
+}
+
+func TestDefaultPolicyBlocksEveryCredentialThatHitsAWindow(t *testing.T) {
+	now := time.Now().UTC()
+	fiveHour := &managedBlock{Kind: blockKindQuota5h, Window: "5h", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(time.Hour)}
+	sevenDay := &managedBlock{Kind: blockKindQuota7d, Window: "7d", Status: blockStatusActive, BlockedAt: now, ResetAt: now.Add(24 * time.Hour)}
+	used := 99.0
+	candidates := []credentialDecision{
+		{
+			stateKey:    "five-hour",
+			report:      credentialReport{Name: "five-hour", Provider: "codex", PrimaryUsed: &used},
+			quotaBlock:  fiveHour,
+			quotaActive: true,
+			state:       &credentialState{Key: "five-hour"},
+		},
+		{
+			stateKey:    "seven-day",
+			report:      credentialReport{Name: "seven-day", Provider: "codex", PrimaryUsed: &used},
+			quotaBlock:  sevenDay,
+			quotaActive: true,
+			state:       &credentialState{Key: "seven-day"},
+		},
+	}
+	if protected := protectedQuotaCredential(defaultConfig(), candidates, now); protected != "" {
+		t.Fatalf("default policy protected %q; every credential must remain independently enforceable", protected)
+	}
+	enabled := true
+	cfg := defaultConfig()
+	cfg.KeepAtLeastOne = &enabled
+	if protected := protectedQuotaCredential(cfg, candidates, now); protected == "" {
+		t.Fatal("explicit keep-at-least-one policy must still protect one credential")
 	}
 }
 

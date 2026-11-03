@@ -21,10 +21,15 @@ func TestManagementResourceAndRegistration(t *testing.T) {
 	}
 	page := string(response.Body)
 	for _, expected := range []string{
-		"Codex Quota Guard 2.2.0",
+		"Codex Quota Guard 2.3.0",
 		"Quota policy",
 		"Scheduled warm-up",
 		"Credentials and last decisions",
+		`report.manual_enabled && !report.manual_disabled`,
+		`report.manual_enabled ? "Resume policy" : "Reset block"`,
+		`const API = "/v0/management/plugins/codex-quota-guard";`,
+		`request(API + "/apply-config"`,
+		"Configuration saved, applied, and one quota sweep started.",
 		`id="language"`,
 		`const LANGUAGE_KEY = "codexQuotaGuardLanguage";`,
 		`function applyLanguage(next, persist) {`,
@@ -42,11 +47,36 @@ func TestManagementResourceAndRegistration(t *testing.T) {
 	}
 
 	registration := managementRegistrationPayload()
-	if len(registration.Routes) != 5 {
-		t.Fatalf("management routes = %d, want 5", len(registration.Routes))
+	if len(registration.Routes) != 6 {
+		t.Fatalf("management routes = %d, want 6", len(registration.Routes))
 	}
 	if len(registration.Resources) != 1 || registration.Resources[0].Path != statusResourcePath {
 		t.Fatalf("management resources = %#v", registration.Resources)
+	}
+}
+
+func TestManagementApplyConfigRouteUpdatesRunningStateImmediately(t *testing.T) {
+	state := newGuardState()
+	response := dispatchManagement(managementRequest{
+		Method: http.MethodPost,
+		Path:   "/v0/management/plugins/codex-quota-guard/apply-config",
+		Body:   []byte(`{"keep_at_least_one":true}`),
+	}, state)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("apply-config response = %d, body=%s", response.StatusCode, response.Body)
+	}
+	if !state.config().keepAtLeastOne() {
+		t.Fatal("apply-config did not update the running plugin configuration")
+	}
+	var applied struct {
+		Status   string             `json:"status"`
+		Settings managementSettings `json:"settings"`
+	}
+	if errDecode := json.Unmarshal(response.Body, &applied); errDecode != nil {
+		t.Fatalf("decode apply-config response: %v", errDecode)
+	}
+	if applied.Status != "applied" || !applied.Settings.KeepAtLeastOne {
+		t.Fatalf("apply-config payload = %#v", applied)
 	}
 }
 

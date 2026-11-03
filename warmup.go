@@ -204,7 +204,7 @@ func warmupEligible(auth pluginapi.HostAuthFileEntry, state *credentialState, no
 	if state.ManualDisabled {
 		return false, "credential is manually disabled"
 	}
-	if state.blocked(now) {
+	if !state.ManualEnabled && state.blocked(now) {
 		return false, "credential has an active guard block"
 	}
 	if scheduleKey != "" && state.Warmup.LastRunKey == scheduleKey {

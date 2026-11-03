@@ -43,3 +43,20 @@ func TestWarmupEligibilityRejectsManualQuotaAndRateBlocks(t *testing.T) {
 		})
 	}
 }
+
+func TestWarmupEligibilityAllowsManualEnabledOverride(t *testing.T) {
+	now := time.Now().UTC()
+	state := &credentialState{
+		ManualEnabled: true,
+		QuotaBlock: &managedBlock{
+			Kind:      blockKindQuota5h,
+			Status:    blockStatusActive,
+			BlockedAt: now,
+			ResetAt:   now.Add(time.Hour),
+		},
+	}
+	auth := pluginapi.HostAuthFileEntry{ID: "auth-1", Provider: "codex"}
+	if eligible, reason := warmupEligible(auth, state, now, "daily"); !eligible {
+		t.Fatalf("manual-enabled credential must remain warm-up eligible: %s", reason)
+	}
+}

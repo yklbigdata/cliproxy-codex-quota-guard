@@ -13,7 +13,7 @@ import (
 const (
 	pluginID      = "codex-quota-guard"
 	pluginName    = "Codex Quota Guard"
-	pluginVersion = "2.2.0"
+	pluginVersion = "2.3.0"
 	pluginAuthor  = "yklbigdata"
 	repositoryURL = "https://github.com/yklbigdata/cliproxy-codex-quota-guard"
 
@@ -110,7 +110,7 @@ func (s warmupSchedule) enabled() bool {
 }
 
 func defaultConfig() pluginConfig {
-	keepOne := true
+	keepOne := false
 	dryRun := false
 	weekly := false
 	warmupEnabled := true
@@ -143,7 +143,7 @@ func (c pluginConfig) enforceWeekly() bool {
 }
 
 func (c pluginConfig) keepAtLeastOne() bool {
-	return c.KeepAtLeastOne == nil || *c.KeepAtLeastOne
+	return c.KeepAtLeastOne != nil && *c.KeepAtLeastOne
 }
 
 func (c pluginConfig) dryRun() bool {

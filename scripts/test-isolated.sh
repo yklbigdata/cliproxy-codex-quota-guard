@@ -74,7 +74,7 @@ plugins:
       dry_run: true
       initial_delay: 2s
       poll_interval: 10m
-      keep_at_least_one: true
+      keep_at_least_one: false
       warmup_enabled: false
       state_file: /CLIProxyAPI/plugins/state/codex-quota-guard/state.json
 YAML
@@ -111,7 +111,7 @@ check_status() {
     exit 1
   fi
   grep -q "Codex Quota Guard" "$work_dir/status-$suffix.html"
-  grep -q "2.2.0" "$work_dir/status-$suffix.html"
+  grep -q "2.3.0" "$work_dir/status-$suffix.html"
   grep -q "Quota policy" "$work_dir/status-$suffix.html"
   grep -q "Scheduled warm-up" "$work_dir/status-$suffix.html"
   grep -q 'id="language"' "$work_dir/status-$suffix.html"
@@ -152,6 +152,11 @@ check_management_api() {
     exit 1
   fi
 
+  if ! jq -e '.keep_at_least_one == false' <<<"$config_before" >/dev/null; then
+    echo "keep_at_least_one did not default to false: $config_before" >&2
+    exit 1
+  fi
+
   management_curl -X POST -H "Content-Type: application/json" \
     --data '{"disable_below_remaining_percent":2.5}' \
     "http://127.0.0.1:${port}/v0/management/plugins/codex-quota-guard/validate-config" \
@@ -169,6 +174,17 @@ check_management_api() {
   if ! jq -e '.status == "ok"' "$work_dir/patch-config.json" >/dev/null; then
     echo "plugin config PATCH failed: $(cat "$work_dir/patch-config.json")" >&2
     docker logs "$container_name" 2>&1 | tail -n 120 >&2
+    exit 1
+  fi
+
+  management_curl -X POST -H "Content-Type: application/json" \
+    --data '{"disable_below_remaining_percent":2.5}' \
+    "http://127.0.0.1:${port}/v0/management/plugins/codex-quota-guard/apply-config" \
+    >"$work_dir/apply-config.json"
+  if ! jq -e '.status == "applied" and .settings.disable_below_remaining_percent == 2.5' \
+    "$work_dir/apply-config.json" >/dev/null; then
+    echo "apply-config response is invalid" >&2
+    cat "$work_dir/apply-config.json" >&2
     exit 1
   fi
 
@@ -194,6 +210,7 @@ check_management_api() {
     exit 1
   fi
   echo "management_config_patch_ok=true"
+  echo "management_config_apply_ok=true"
 }
 
 wait_for_startup_state() {

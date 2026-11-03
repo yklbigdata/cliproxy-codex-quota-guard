@@ -205,7 +205,7 @@ func pluginRegistration() registration {
 				{Name: "poll_interval", Type: pluginapi.ConfigFieldTypeString, Description: "How often the quota sweep runs, for example 60s."},
 				{Name: "initial_delay", Type: pluginapi.ConfigFieldTypeString, Description: "Delay before the first sweep after the plugin starts, for example 15s."},
 				{Name: "dry_run", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Report the decisions without writing credential state."},
-				{Name: "keep_at_least_one", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Never disable every credential of a provider; keep the one with the most remaining quota."},
+				{Name: "keep_at_least_one", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Default false. When true, keep one provider credential available by protecting the one with the most remaining quota."},
 				{Name: "rate_limit_fallback", Type: pluginapi.ConfigFieldTypeString, Description: "Fallback block duration when a Codex 429 omits reset headers."},
 				{Name: "warmup_enabled", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Enable scheduled Codex quota warm-up requests."},
 				{Name: "warmup_model", Type: pluginapi.ConfigFieldTypeString, Description: "Model used for scheduled warm-up requests."},

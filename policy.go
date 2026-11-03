@@ -182,7 +182,7 @@ func protectedQuotaCredential(cfg pluginConfig, candidates []credentialDecision,
 			groups[provider] = g
 		}
 		g.eligible++
-		if item.quotaBlock.active(now) {
+		if !item.manualEnabled && item.quotaBlock.active(now) {
 			g.blocked++
 		}
 		remaining := quotaChoice(*item)

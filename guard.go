@@ -56,6 +56,7 @@ type credentialReport struct {
 	FileDisabled      bool
 	Managed           bool
 	ManualDisabled    bool
+	ManualEnabled     bool
 	QuotaBlocked      bool
 	RateLimitBlocked  bool
 	PrimaryUsed       *float64
@@ -86,6 +87,7 @@ type credentialDecision struct {
 	quotaBlock      *managedBlock
 	rateBlock       *managedBlock
 	manual          bool
+	manualEnabled   bool
 	managed         bool
 	fileDisabled    bool
 	runtimeDisabled bool

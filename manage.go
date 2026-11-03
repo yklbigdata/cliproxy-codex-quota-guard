@@ -22,6 +22,7 @@ const (
 	managementRoutePrefix  = "/plugins/" + pluginID
 	managementStatusPath   = managementRoutePrefix + "/status"
 	managementValidatePath = managementRoutePrefix + "/validate-config"
+	managementApplyPath    = managementRoutePrefix + "/apply-config"
 	managementSweepPath    = managementRoutePrefix + "/sweep"
 	managementWarmupPath   = managementRoutePrefix + "/warmup"
 	managementResetPath    = managementRoutePrefix + "/reset-block"
@@ -105,6 +106,7 @@ type managementCredential struct {
 	RuntimeDisabled   bool     `json:"runtime_disabled"`
 	Managed           bool     `json:"managed"`
 	ManualDisabled    bool     `json:"manual_disabled"`
+	ManualEnabled     bool     `json:"manual_enabled"`
 	QuotaBlocked      bool     `json:"quota_blocked"`
 	RateLimitBlocked  bool     `json:"rate_limit_blocked"`
 	CanResetBlock     bool     `json:"can_reset_block"`
@@ -159,6 +161,7 @@ func managementRegistrationPayload() managementRegistration {
 		Routes: []managementRoute{
 			{Method: http.MethodGet, Path: managementStatusPath, Description: "Return live guard state, decisions, and editable settings."},
 			{Method: http.MethodPost, Path: managementValidatePath, Description: "Validate and normalize a functional settings patch before it is saved."},
+			{Method: http.MethodPost, Path: managementApplyPath, Description: "Apply a validated functional settings patch to the running plugin."},
 			{Method: http.MethodPost, Path: managementSweepPath, Description: "Start one quota sweep immediately if another sweep is not running."},
 			{Method: http.MethodPost, Path: managementWarmupPath, Description: "Start one warm-up pass immediately for eligible credentials."},
 			{Method: http.MethodPost, Path: managementResetPath, Description: "Clear plugin-owned quota and rate-limit blocks for one credential."},
@@ -201,6 +204,8 @@ func dispatchManagement(req managementRequest, state *guardState) managementResp
 		return jsonManagementResponse(http.StatusOK, managementStatusPayload(state.snapshot()))
 	case method == http.MethodPost && isManagementPath(path, managementValidatePath):
 		return handleValidateSettings(state, req.Body)
+	case method == http.MethodPost && isManagementPath(path, managementApplyPath):
+		return handleApplySettings(state, req.Body)
 	case method == http.MethodPost && isManagementPath(path, managementSweepPath):
 		if errStart := state.startSweepAction(); errStart != nil {
 			return actionErrorResponse(errStart)
@@ -316,6 +321,28 @@ func handleValidateSettings(state *guardState, body []byte) managementResponse {
 	return jsonManagementResponse(http.StatusOK, map[string]any{
 		"status":   "valid",
 		"settings": managementSettingsFromConfig(candidate),
+	})
+}
+
+func handleApplySettings(state *guardState, body []byte) managementResponse {
+	patch, errDecode := decodeSettingsPatch(body)
+	if errDecode != nil {
+		return jsonManagementResponse(http.StatusBadRequest, map[string]any{
+			"error":   "invalid_settings",
+			"message": errDecode.Error(),
+		})
+	}
+	candidate, errApply := applyManagementSettingsPatch(state.config(), patch)
+	if errApply != nil {
+		return jsonManagementResponse(http.StatusUnprocessableEntity, map[string]any{
+			"error":   "invalid_settings",
+			"message": errApply.Error(),
+		})
+	}
+	state.applyConfig(candidate)
+	return jsonManagementResponse(http.StatusOK, map[string]any{
+		"status":   "applied",
+		"settings": managementSettingsFromConfig(state.config()),
 	})
 }
 
@@ -447,7 +474,7 @@ func managementSettingsFromConfig(cfg pluginConfig) managementSettings {
 func managementStatusPayload(snapshot statusSnapshot) managementStatus {
 	credentials := make([]managementCredential, 0, len(snapshot.Reports))
 	for _, report := range snapshot.Reports {
-		canReset := !report.ManualDisabled && (report.Managed || report.QuotaBlocked || report.RateLimitBlocked)
+		canReset := !report.ManualDisabled && (report.Managed || report.ManualEnabled || report.QuotaBlocked || report.RateLimitBlocked)
 		credentials = append(credentials, managementCredential{
 			Ref:               report.Ref,
 			Name:              report.Name,
@@ -458,6 +485,7 @@ func managementStatusPayload(snapshot statusSnapshot) managementStatus {
 			RuntimeDisabled:   report.RuntimeDisabled,
 			Managed:           report.Managed,
 			ManualDisabled:    report.ManualDisabled,
+			ManualEnabled:     report.ManualEnabled,
 			QuotaBlocked:      report.QuotaBlocked,
 			RateLimitBlocked:  report.RateLimitBlocked,
 			CanResetBlock:     canReset,

@@ -58,8 +58,8 @@ const managementPageHTML = `<!doctype html>
     <div class="status-grid" id="status-grid"></div>
   </section>
 
-  <form class="card hidden" id="settings-card">
-    <div class="section-head"><div><h2>Quota policy</h2><p class="muted small">These values are saved with a PATCH to the native CPA plugin configuration API. Unknown fields are preserved.</p></div><div class="row"><button type="button" id="reload-settings">Reload</button><button class="primary" type="submit" id="save-settings">Validate and save</button></div></div>
+  <form class="card" id="settings-card">
+    <div class="section-head"><div><h2>Quota policy</h2><p class="muted small">Edit these values directly on this page. Saving validates the fields, updates the native CPA plugin configuration, applies the policy immediately, and starts one quota sweep. Connect first to enable editing.</p></div><div class="row"><button type="button" id="reload-settings">Reload</button><button class="primary" type="submit" id="save-settings">Validate and save</button></div></div>
     <div class="grid grid-4">
       <div class="field"><label for="disable-5h">Disable 5h at remaining (%)</label><input id="disable-5h" type="number" min="0" max="100" step="0.1" required></div>
       <div class="field"><label for="resume-5h">Resume 5h at remaining (%)</label><input id="resume-5h" type="number" min="0" max="100" step="0.1" required></div>
@@ -82,8 +82,8 @@ const managementPageHTML = `<!doctype html>
     </div>
   </form>
 
-  <form class="card hidden" id="warmup-card">
-<div class="section-head"><div><h2>Scheduled warm-up</h2><p class="muted small">Warm-up runs only for eligible Codex credentials. It skips manually disabled and actively blocked credentials.</p></div><div class="row"><button type="button" id="add-schedule">Add schedule</button><button class="primary" type="submit" id="save-warmup">Validate and save</button></div></div>
+  <form class="card" id="warmup-card">
+<div class="section-head"><div><h2>Scheduled warm-up</h2><p class="muted small">Warm-up runs only for eligible Codex credentials. It skips manually disabled credentials and policy blocks that are not covered by a manual-enable override.</p></div><div class="row"><button type="button" id="add-schedule">Add schedule</button><button class="primary" type="submit" id="save-warmup">Validate and save</button></div></div>
     <div class="grid grid-2">
       <div class="grid">
         <label class="check"><input id="warmup-enabled" type="checkbox"> Enable scheduled warm-up</label>
@@ -97,12 +97,12 @@ const managementPageHTML = `<!doctype html>
   </form>
 
   <section class="card hidden" id="credentials-card">
-    <div class="section-head"><div><h2>Credentials and last decisions</h2><p class="muted small">Recent sweep decisions and warm-up results. Block reset is available only for plugin-owned state.</p></div><button id="refresh-credentials">Refresh</button></div>
+    <div class="section-head"><div><h2>Credentials and last decisions</h2><p class="muted small">Recent sweep decisions and warm-up results. Block reset and manual-enable override reset are available only for plugin-owned state.</p></div><button id="refresh-credentials">Refresh</button></div>
     <div class="table-wrap"><table><thead><tr><th>Credential</th><th>Plan</th><th>5h used</th><th>7d used</th><th>State</th><th>Action and reason</th><th>Warm-up</th><th>Checked</th><th>Operation</th></tr></thead><tbody id="credentials-body"></tbody></table></div>
     <p class="muted small" id="credentials-empty" style="margin-top:10px">No sweep data loaded.</p>
   </section>
 
-  <p class="footer">Codex Quota Guard 2.2.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.</p>
+  <p class="footer">Codex Quota Guard 2.3.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.</p>
 </main>
 <script>
 ` + managementPageScriptCore + managementPageScriptUI + managementPageScriptEvents + `
@@ -142,7 +142,7 @@ const managementPageScriptCore = `
     "Run quota sweep now": "立即巡检额度",
     "Run warm-up now": "立即预热",
     "Quota policy": "额度策略",
-    "These values are saved with a PATCH to the native CPA plugin configuration API. Unknown fields are preserved.": "这些值通过 PATCH 保存到 CPA 原生插件配置 API，未知字段会保留。",
+    "Edit these values directly on this page. Saving validates the fields, updates the native CPA plugin configuration, applies the policy immediately, and starts one quota sweep. Connect first to enable editing.": "可直接在本页修改这些参数。保存时会校验字段、更新 CPA 原生插件配置、立即应用策略并启动一次额度巡检。连接管理密钥后可编辑。",
     "Reload": "重新加载",
     "Validate and save": "校验并保存",
     "Disable 5h at remaining (%)": "5 小时剩余额度低于（%）时禁用",
@@ -159,7 +159,7 @@ const managementPageScriptCore = `
     "429 fallback duration": "429 默认封锁时长",
     "Used when a Codex 429 response has no reset header.": "当 Codex 返回 429 且没有重置时间响应头时使用。",
     "Scheduled warm-up": "定时预热",
-    "Warm-up runs only for eligible Codex credentials. It skips manually disabled and actively blocked credentials.": "预热只对符合条件的 Codex 凭证执行，并跳过人工禁用或当前被封锁的凭证。",
+    "Warm-up runs only for eligible Codex credentials. It skips manually disabled credentials and policy blocks that are not covered by a manual-enable override.": "预热只对符合条件的 Codex 凭证执行。人工禁用凭证会被跳过；存在人工启用保护的凭证不受额度封锁过滤。",
     "Add schedule": "添加日程",
     "Enable scheduled warm-up": "启用定时预热",
     "Warm-up model": "预热模型",
@@ -168,7 +168,7 @@ const managementPageScriptCore = `
     "Daily schedules": "每日日程",
     "No schedules configured.": "尚未配置日程。",
     "Credentials and last decisions": "凭证与最近决策",
-    "Recent sweep decisions and warm-up results. Block reset is available only for plugin-owned state.": "显示最近巡检决策和预热结果。只有插件拥有的封锁状态可以清除。",
+    "Recent sweep decisions and warm-up results. Block reset and manual-enable override reset are available only for plugin-owned state.": "显示最近巡检决策和预热结果。仅插件拥有的封锁状态和人工启用保护可以清除。",
     "Credential": "凭证",
     "Plan": "套餐",
     "5h used": "5 小时已用",
@@ -183,7 +183,7 @@ const managementPageScriptCore = `
     "Local time": "本地时间",
     "Enabled": "启用",
     "Remove": "删除",
-    "Codex Quota Guard 2.2.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.": "Codex Quota Guard 2.2.0。设置通过 CPA Management API 保存。此页面不会返回凭证文件或令牌。"
+    "Codex Quota Guard 2.3.0. Settings use the CPA Management API. Credential files and tokens are never returned to this page.": "Codex Quota Guard 2.3.0。设置通过 CPA Management API 保存。此页面不会返回凭证文件或令牌。"
   };
   const ZH_MESSAGES = {
     "Management key cleared.": "管理密钥已清除。",
@@ -197,16 +197,26 @@ const managementPageScriptCore = `
     "Saved configuration and live status reloaded.": "已重新加载保存的配置和实时状态。",
     "Reload settings before saving.": "保存前请先重新加载配置。",
     "Functional settings changed after this page loaded them.": "页面加载后，功能配置已被其他操作修改。",
+    "These edited fields changed after this page loaded them: {fields}": "以下正在编辑的字段在页面加载后已被其他操作修改：{fields}",
+    "No configuration changes to save.": "没有需要保存的配置变更。",
     "{context}: The live configuration changed. Reload settings, review the values, and save again. {message}": "{context}：实时配置已变化。请重新加载、核对数值后再保存。{message}",
     "{context}: {message}": "{context}：{message}",
     "Configuration saved. Waiting for CPA to apply the plugin reconfiguration...": "配置已保存，正在等待 CPA 应用插件重配置…",
     "Configuration saved and applied by the running plugin.": "配置已保存，运行中的插件已应用新配置。",
+    "Configuration saved, applied, and one quota sweep started.": "配置已保存并应用，已启动一次额度巡检。",
+    "Configuration saved, applied, but the immediate quota sweep could not start: {message}": "配置已保存并应用，但无法启动即时额度巡检：{message}",
     "Configuration is saved, but the running plugin has not reported the new values yet. Refresh status before another edit.": "配置已保存，但运行中的插件尚未报告新值。请在再次编辑前刷新状态。",
+    "Configuration saved, but immediate apply failed": "配置已保存，但立即应用失败",
     "{label} started.": "{label}已启动。",
     "{label} failed": "{label}失败",
     "The credential has no stable reference.": "该凭证没有稳定引用，无法执行操作。",
     "Clear plugin-owned quota and 429 blocks for {name}?\n\nReference: {reference}\n\nThis does not enable credentials disabled outside this plugin.": "要清除 {name} 的插件额度封锁和 429 封锁吗？\n\n引用：{reference}\n\n此操作不会启用插件外人工禁用的凭证。",
     "Plugin-owned blocks cleared for {name}.": "已清除 {name} 的插件封锁。",
+    "Clear the manual-enable override for {name}? The next sweep may disable this credential again if its quota still meets the disable condition.": "要清除 {name} 的人工启用保护吗？如果额度仍达到禁用条件，下一次巡检可能再次禁用该凭证。",
+    "Manual-enable override cleared for {name}.": "已清除 {name} 的人工启用保护。",
+    "Restore automatic quota policy for {name}?\n\nReference: {reference}\n\nThis clears the manual-enable protection and plugin-owned blocks. The next sweep may disable this credential again if its quota still meets the disable condition.": "要为 {name} 恢复自动额度策略吗？\n\n引用：{reference}\n\n此操作会清除人工启用保护和插件拥有的封锁。如果额度仍达到禁用条件，下一次巡检可能再次禁用该凭证。",
+    "Automatic quota policy restored for {name}.": "已为 {name} 恢复自动额度策略。",
+    "Restore policy failed": "恢复自动策略失败",
     "Block reset failed": "清除封锁失败",
     "Key persistence enabled for this browser.": "已为此浏览器启用密钥持久化。",
     "Key persistence disabled; the session copy remains.": "已关闭密钥持久化，当前会话中的副本仍保留。",
@@ -248,6 +258,7 @@ const managementPageScriptCore = `
     "Persistent state and workers report no current error": "持久状态和工作线程当前均无错误",
     "attention": "注意",
     "manual disabled": "人工禁用",
+    "manual enable protected": "人工启用保护",
     "5h quota": "5 小时额度",
     "429 active": "429 生效",
     "plugin disabled": "插件已禁用",
@@ -258,6 +269,7 @@ const managementPageScriptCore = `
     "success": "成功",
     "failed": "失败",
     "Reset block": "清除封锁",
+    "Resume policy": "恢复自动策略",
     "none": "无",
     "disabled": "已禁用",
     "enabled": "已启用",
@@ -278,6 +290,8 @@ const managementPageScriptCore = `
     "credential has no access token": "凭证没有访问令牌",
     "cannot read Codex quota; existing blocks are preserved": "无法读取 Codex 额度，现有封锁保持不变",
     "protected: keeping the last Codex credential available": "保护策略：保留最后一个可用的 Codex 凭证",
+    "manual enable override: quota disable suppressed": "人工启用保护：已抑制额度禁用",
+    "clear guard marker failed": "清除旧守卫标记失败",
     "disable failed": "禁用失败",
     "update guard marker failed": "更新守卫标记失败",
     "block expired": "封锁已到期",
@@ -292,6 +306,7 @@ const managementPageScriptCore = `
   const originalAttributes = new WeakMap();
   const els = {};
   let managementKey = "";
+  let connectionActive = false;
   let currentStatus = null;
   let noticeState = null;
 
@@ -412,9 +427,12 @@ const managementPageScriptCore = `
     renderNotice();
   }
   function setConnectedUi(connected) {
-    ["status-card", "settings-card", "warmup-card", "credentials-card"].forEach(id => {
-      byId(id).classList.toggle("hidden", !connected);
-    });
+    connectionActive = Boolean(connected);
+    byId("status-card").classList.toggle("hidden", !connectionActive);
+    byId("credentials-card").classList.toggle("hidden", !connectionActive);
+    byId("settings-card").classList.remove("hidden");
+    byId("warmup-card").classList.remove("hidden");
+    syncFormEditingState();
   }
   function readStoredKey() {
     return localStorage.getItem(LOCAL_KEY) || sessionStorage.getItem(SESSION_KEY) || "";
@@ -449,6 +467,7 @@ const managementPageScriptCore = `
       const message = data && (data.message || data.error || data.raw);
       const error = new Error(message || ("HTTP " + response.status));
       error.status = response.status;
+      error.code = data && data.error ? String(data.error) : "";
       throw error;
     }
     return data || {};
@@ -497,8 +516,8 @@ const managementPageScriptCore = `
 
 const managementPageScriptUI = `
   let baselineConfig = {};
-  let baselineRawSettings = "";
   let baselineSettings = "";
+  let baselineEffectiveSettings = null;
   let statusTimer = null;
   let statusBusy = false;
   let scheduleSequence = 0;
@@ -612,6 +631,18 @@ const managementPageScriptUI = `
       warmup_schedules: collectSchedules()
     };
   }
+  function currentFormSettings() {
+    return normalizeSettings(functionalPatch());
+  }
+  function changedFunctionalFields(current, baseline) {
+    if (!baseline) return FUNCTIONAL_FIELDS.slice();
+    return FUNCTIONAL_FIELDS.filter(key => stable(current[key]) !== stable(baseline[key]));
+  }
+  function patchForFields(settings, fields) {
+    const patch = {};
+    fields.forEach(key => { patch[key] = settings[key]; });
+    return patch;
+  }
   function collectSchedules() {
     const schedules = [];
     els.scheduleList.querySelectorAll("[data-schedule-row]").forEach(row => {
@@ -648,17 +679,26 @@ const managementPageScriptUI = `
   }
   function syncWeeklyControls() {
     const enabled = els.weeklyEnabled.checked;
-    els.disable7d.disabled = !enabled;
-    els.resume7d.disabled = !enabled;
+    els.disable7d.disabled = !connectionActive || !enabled;
+    els.resume7d.disabled = !connectionActive || !enabled;
     els.weeklyFields.classList.toggle("muted", !enabled);
   }
   function syncWarmupControls() {
     const enabled = els.warmupEnabled.checked;
-    els.warmupModel.disabled = !enabled;
-    els.warmupTimezone.disabled = !enabled;
-    els.warmupPrompt.disabled = !enabled;
-    els.addSchedule.disabled = !enabled;
-    els.scheduleList.querySelectorAll("input,button").forEach(node => { node.disabled = !enabled; });
+    els.warmupModel.disabled = !connectionActive || !enabled;
+    els.warmupTimezone.disabled = !connectionActive || !enabled;
+    els.warmupPrompt.disabled = !connectionActive || !enabled;
+    els.addSchedule.disabled = !connectionActive || !enabled;
+    els.scheduleList.querySelectorAll("input,button").forEach(node => { node.disabled = !connectionActive || !enabled; });
+  }
+  function syncFormEditingState() {
+    [els.settingsCard, els.warmupCard].forEach(card => {
+      if (!card) return;
+      card.querySelectorAll("input,select,textarea,button").forEach(node => { node.disabled = !connectionActive; });
+    });
+    if (!connectionActive) return;
+    syncWeeklyControls();
+    syncWarmupControls();
   }
   function renderSchedules(schedules) {
     els.scheduleList.replaceChildren();
@@ -800,6 +840,7 @@ const managementPageScriptUI = `
     const wrap = document.createElement("div");
     wrap.className = "row";
     if (report.manual_disabled) wrap.append(badge(t("manual disabled"), "bad"));
+    if (report.manual_enabled && !report.manual_disabled) wrap.append(badge(t("manual enable protected"), "warn"));
     if (report.quota_blocked) wrap.append(badge(t("5h quota"), "warn"));
     if (report.rate_limit_blocked) wrap.append(badge(t("429 active"), "warn"));
     if (report.managed) wrap.append(badge(t("plugin disabled"), "warn"));
@@ -845,7 +886,7 @@ const managementPageScriptUI = `
         const reset = document.createElement("button");
         reset.type = "button";
         reset.className = "danger";
-        reset.textContent = t("Reset block");
+        reset.textContent = t(report.manual_enabled ? "Resume policy" : "Reset block");
         reset.addEventListener("click", () => resetBlock(report));
         operation.append(reset);
       } else {
@@ -856,9 +897,9 @@ const managementPageScriptUI = `
     });
   }
   function setSaveBusy(busy) {
-    els.saveSettings.disabled = busy;
-    els.saveWarmup.disabled = busy;
-    els.reloadSettings.disabled = busy;
+    els.saveSettings.disabled = busy || !connectionActive;
+    els.saveWarmup.disabled = busy || !connectionActive;
+    els.reloadSettings.disabled = busy || !connectionActive;
     els.connect.disabled = busy;
   }
   function scheduleStatusPoll(delay) {
@@ -918,6 +959,7 @@ const managementPageScriptEvents = `
   function conflict(message) {
     const error = new Error(message);
     error.status = 409;
+    error.code = "configuration_conflict";
     return error;
   }
   function handleRequestError(error, context) {
@@ -930,7 +972,7 @@ const managementPageScriptEvents = `
       showNotice("Authentication failed. Enter the current CPA Management Key again.", "error");
       return;
     }
-    if (error && error.status === 409) {
+    if (error && error.code === "configuration_conflict") {
       showNoticeKey("{context}: The live configuration changed. Reload settings, review the values, and save again. {message}", "error", {
         context: t(context || "Save failed"),
         message: localizeKnownMessage(message)
@@ -948,10 +990,10 @@ const managementPageScriptEvents = `
   }
   function setBaselines(rawConfig, status) {
     baselineConfig = cloneJson(rawConfig && typeof rawConfig === "object" ? rawConfig : {}, {});
-    baselineRawSettings = stable(rawFunctionalProjection(baselineConfig));
     const effective = settingsFromConfig(baselineConfig, status && status.settings ? status.settings : {});
     applySettings(effective);
-    baselineSettings = stable(normalizeSettings(effective));
+    baselineEffectiveSettings = normalizeSettings(effective);
+    baselineSettings = stable(baselineEffectiveSettings);
   }
   async function loadSettings(status) {
     const rawConfig = await request(CONFIG_API);
@@ -1042,6 +1084,13 @@ const managementPageScriptEvents = `
       showNotice("Reload settings before saving.", "error");
       return;
     }
+    const current = currentFormSettings();
+    const changedFields = changedFunctionalFields(current, baselineEffectiveSettings);
+    if (changedFields.length === 0) {
+      showNotice(t("No configuration changes to save."), "success");
+      return;
+    }
+    let nativeConfigSaved = false;
     setSaveBusy(true);
     try {
       const results = await Promise.all([
@@ -1050,13 +1099,14 @@ const managementPageScriptEvents = `
       ]);
       const latestStatus = results[0];
       const latestConfig = results[1];
-      if (stable(normalizeSettings(latestStatus.settings)) !== baselineSettings ||
-          stable(rawFunctionalProjection(latestConfig)) !== baselineRawSettings) {
-        throw conflict("Functional settings changed after this page loaded them.");
+      const latestEffective = normalizeSettings(settingsFromConfig(latestConfig, latestStatus.settings));
+      const conflicts = changedFields.filter(key => stable(latestEffective[key]) !== stable(baselineEffectiveSettings[key]));
+      if (conflicts.length) {
+        throw conflict(t("These edited fields changed after this page loaded them: {fields}", {fields: conflicts.join(", ")}));
       }
 
-      const patch = functionalPatch();
-      const expected = normalizeSettings(Object.assign({}, latestStatus.settings, patch));
+      const patch = patchForFields(current, changedFields);
+      const expected = normalizeSettings(Object.assign({}, latestEffective, patch));
       await request(API + "/validate-config", {
         method: "POST",
         body: JSON.stringify(patch)
@@ -1065,9 +1115,14 @@ const managementPageScriptEvents = `
         method: "PATCH",
         body: JSON.stringify(patch)
       });
+      nativeConfigSaved = true;
+      await request(API + "/apply-config", {
+        method: "POST",
+        body: JSON.stringify(patch)
+      });
 
       baselineConfig = Object.assign({}, latestConfig, patch);
-      baselineRawSettings = stable(rawFunctionalProjection(baselineConfig));
+      baselineEffectiveSettings = expected;
       baselineSettings = stable(expected);
       showNotice("Configuration saved. Waiting for CPA to apply the plugin reconfiguration...", "");
       const applied = await waitForSettings(expected, 15000);
@@ -1076,16 +1131,29 @@ const managementPageScriptEvents = `
       renderStatus(finalStatus);
       if (applied) {
         setBaselines(finalConfig, finalStatus);
-        showNotice("Configuration saved and applied by the running plugin.", "success");
+        let sweepError = null;
+        try {
+          await request(API + "/sweep", {method: "POST"});
+        } catch (error) {
+          if (!error || error.status !== 409) sweepError = error;
+        }
+        if (sweepError) {
+          showNoticeKey("Configuration saved, applied, but the immediate quota sweep could not start: {message}", "error", {
+            message: localizeKnownMessage(sweepError.message || String(sweepError))
+          });
+        } else {
+          showNoticeKey("Configuration saved, applied, and one quota sweep started.", "success");
+          scheduleStatusPoll(500);
+        }
       } else {
         applySettings(expected);
         baselineConfig = finalConfig;
-        baselineRawSettings = stable(rawFunctionalProjection(finalConfig));
+        baselineEffectiveSettings = normalizeSettings(settingsFromConfig(finalConfig, finalStatus.settings));
         baselineSettings = stable(expected);
         showNotice("Configuration is saved, but the running plugin has not reported the new values yet. Refresh status before another edit.", "error");
       }
     } catch (error) {
-      handleRequestError(error, "Save failed");
+      handleRequestError(error, nativeConfigSaved ? "Configuration saved, but immediate apply failed" : "Save failed");
     } finally {
       setSaveBusy(false);
     }
@@ -1111,20 +1179,20 @@ const managementPageScriptEvents = `
       showNotice("The credential has no stable reference.", "error");
       return;
     }
-    const confirmed = window.confirm(t("Clear plugin-owned quota and 429 blocks for {name}?\n\nReference: {reference}\n\nThis does not enable credentials disabled outside this plugin.", {
-      name,
-      reference
-    }));
+    const confirmKey = report.manual_enabled
+      ? "Restore automatic quota policy for {name}?\n\nReference: {reference}\n\nThis clears the manual-enable protection and plugin-owned blocks. The next sweep may disable this credential again if its quota still meets the disable condition."
+      : "Clear plugin-owned quota and 429 blocks for {name}?\n\nReference: {reference}\n\nThis does not enable credentials disabled outside this plugin.";
+    const confirmed = window.confirm(t(confirmKey, {name, reference}));
     if (!confirmed) return;
     try {
       await request(API + "/reset-block", {
         method: "POST",
         body: JSON.stringify({ref: reference})
       });
-      showNoticeKey("Plugin-owned blocks cleared for {name}.", "success", {name});
+      showNoticeKey(report.manual_enabled ? "Automatic quota policy restored for {name}." : "Plugin-owned blocks cleared for {name}.", "success", {name});
       await refreshStatus(true);
     } catch (error) {
-      handleRequestError(error, t("Block reset failed"));
+      handleRequestError(error, t(report.manual_enabled ? "Restore policy failed" : "Block reset failed"));
     }
   }
   function bindEvents() {

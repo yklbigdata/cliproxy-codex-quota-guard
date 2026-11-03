@@ -73,6 +73,7 @@ type credentialState struct {
 	Email            string                `json:"email,omitempty"`
 	Provider         string                `json:"provider,omitempty"`
 	ManualDisabled   bool                  `json:"manual_disabled,omitempty"`
+	ManualEnabled    bool                  `json:"manual_enabled,omitempty"`
 	DisabledByPlugin bool                  `json:"disabled_by_plugin,omitempty"`
 	QuotaBlock       *managedBlock         `json:"quota_block,omitempty"`
 	RateLimitBlock   *managedBlock         `json:"rate_limit_block,omitempty"`
